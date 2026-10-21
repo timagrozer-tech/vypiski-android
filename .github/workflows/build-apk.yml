@@ -15,16 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack Android project
+      - name: Unpack the newest Android project ZIP
         shell: bash
         run: |
           set -euo pipefail
-          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)
+          ZIP=$(ls -1 *.zip 2>/dev/null | sort -V | tail -n 1 || true)
           test -n "$ZIP" || { echo 'Project ZIP not found'; exit 1; }
+          echo "Using $ZIP"
           mkdir -p android-project
           unzip -q "$ZIP" -d android-project
           test -f android-project/settings.gradle
           test -f android-project/app/build.gradle
+          test -s android-project/app/src/main/assets/index.html
+          if grep -q 'android.permission.INTERNET' android-project/app/src/main/AndroidManifest.xml; then echo 'INTERNET permission must not be declared'; exit 1; fi
 
       - uses: actions/setup-java@v4
         with:
@@ -35,7 +38,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "ANDROID_HOME=${ANDROID_HOME:-}"
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then
             SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
@@ -51,10 +53,18 @@ jobs:
       - name: Build APK
         run: gradle -p android-project :app:assembleDebug --no-daemon --stacktrace
 
+      - name: Check APK contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android-project/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l "$APK" | grep -q 'assets/index.html'
+          ls -la "$APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Vypiski-Android-APK
           path: android-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
