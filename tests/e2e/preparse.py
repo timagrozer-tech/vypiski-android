@@ -52,6 +52,12 @@ async def main():
     check('Замер: есть разбор и процессор','Разбор на людей и события' in t and 'Процессор' in t)
     check('Замер без ФИО','Елисеев' not in t and 'Иванов' not in t)
     await pg.screenshot(path='/tmp/vypiski-test-out/prep-diag.png',full_page=True)
+    # 12.77.8: backup reminder after a large import
+    await pg.evaluate("async()=>{localStorage.removeItem('vypiski.bkNudge.snooze');await VypiskiAudit.log('import.completed',{saved:150,documents:150,failed:0})}")
+    await pg.evaluate("()=>VypiskiWorkflow.openNotes()");await pg.wait_for_selector('#wfNotes');t=await pg.inner_text('#wfNotes')
+    check('Напоминание о копии после крупной загрузки','Пора сделать резервную копию' in t and '150' in t,t[:200])
+    await pg.click("#wfNotes button:has-text('Напомнить завтра')");await pg.evaluate("()=>VypiskiWorkflow.openNotes()");await pg.wait_for_selector('#wfNotes');t=await pg.inner_text('#wfNotes')
+    check('«Напомнить завтра» убирает напоминание','Пора сделать' not in t,t[:120]);await pg.evaluate("()=>document.getElementById('wfNotes')?.remove()")
     check('Без ошибок страницы',not errs,errs)
     await b.close()
   print(f"{sum(res)}/{len(res)}")
