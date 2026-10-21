@@ -13,11 +13,11 @@ for(const e of document.querySelectorAll('#content *, #appNav *, #appMore *, #df
  const bg=lum(cs.backgroundColor);const txt=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())||['INPUT','SELECT','TEXTAREA'].includes(e.tagName);
  const name=e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(e.className&&typeof e.className==='string'?'.'+e.className.trim().split(/\\s+/).join('.'):'');
  if(bg!==null&&bg>0.6)res.push('LIGHT-BG '+name+' '+cs.backgroundColor);
- if(txt){const fg=lum(cs.color);if(fg!==null&&fg<0.12)res.push('DARK-TEXT '+name+' '+cs.color+' «'+(e.textContent||e.value||'').trim().slice(0,30)+'»')}}
+ if(txt){const fg=lum(cs.color);if(fg!==null&&fg<0.12&&!(bg!==null&&bg>0.3))res.push('DARK-TEXT '+name+' '+cs.color+' «'+(e.textContent||e.value||'').trim().slice(0,30)+'»')}}
 // paper previews must keep dark text on white in every theme
 for(const e of document.querySelectorAll('.u2-doc *, .word-preview *, .xsheet *')){const r=e.getBoundingClientRect();if(!r.width||![...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim()))continue;const fg=lum(getComputedStyle(e).color);if(fg!==null&&fg>0.3)res.push('LIGHT-TEXT-ON-PAPER '+e.tagName.toLowerCase()+' «'+e.textContent.trim().slice(0,30)+'»')}
 return [...new Set(res)]}"""
-SECS=["home","orders","search","table","create","ready","import","templates","backup","diag","settings"]
+SECS=["home","orders","search","table","create","batch","ready","import","templates","backup","diag","settings"]
 async def m():
     async with async_playwright() as p:
         b=await p.chromium.launch(); pg=await b.new_page(viewport={"width":int(sys.argv[2]) if len(sys.argv)>2 else 390,"height":844})
