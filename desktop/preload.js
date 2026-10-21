@@ -4,6 +4,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('VypiskiDesktop', {
   platform: process.platform,
   version: () => ipcRenderer.sendSync('app:version'),
+  crashLog: () => ipcRenderer.sendSync('crash:log'),
+  crashClear: () => ipcRenderer.sendSync('crash:clear'),
   showInFolder: (p) => ipcRenderer.invoke('file:show', p),
   nameDownload: (url, name) => ipcRenderer.sendSync('dl:name', url, name),
   openSaveFolder: () => ipcRenderer.invoke('folder:open'),

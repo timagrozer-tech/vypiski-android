@@ -47,6 +47,13 @@ function uniquePath(dir, name) {
   return path.join(dir, `${base} ${Date.now()}${ext}`);
 }
 
+/* 12.77.10: crash log in the program's data folder — technical facts only (time, reason, memory) */
+const crashPath = () => path.join(app.getPath('userData'), 'crash-log.json');
+function crashRead() { try { const a = JSON.parse(fs.readFileSync(crashPath(), 'utf8')); return Array.isArray(a) ? a : []; } catch { return []; } }
+function crashAdd(e) { try { const a = crashRead(); a.push({ ...e, version: app.getVersion() }); fs.writeFileSync(crashPath(), JSON.stringify(a.slice(-30))); } catch {} }
+function memInfo() { try { const m = process.getSystemMemoryInfo(); return { availMb: Math.round((m.free || 0) / 1024), totalMb: Math.round((m.total || 0) / 1024) }; } catch { return {}; } }
+process.on('uncaughtExceptionMonitor', (err) => { crashAdd({ type: 'native', at: Date.now(), error: String(err && err.stack || err).slice(0, 3000) }); });
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 900, minHeight: 600, show: false,
@@ -56,6 +63,13 @@ function createWindow() {
   });
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  // 12.77.10: if the page process crashes or hangs, remember it (Diagnostics → «Отчёты о сбоях») and reload the page
+  win.webContents.on('render-process-gone', (_e, d) => {
+    crashAdd({ type: 'renderer', at: Date.now(), reason: d.reason, exitCode: d.exitCode, memory: memInfo() });
+    if (d.reason !== 'clean-exit' && win && !win.isDestroyed()) setTimeout(() => { try { win.reload(); } catch {} }, 500);
+  });
+  win.on('unresponsive', () => crashAdd({ type: 'hang', at: Date.now(), memory: memInfo() }));
+  win.on('responsive', () => crashAdd({ type: 'hang-end', at: Date.now() }));
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith(`app://${HOST}/`)) e.preventDefault(); });
   // the page asks before leaving while an import runs: ask the user instead of silently refusing to close
   win.webContents.on('will-prevent-unload', (e) => {
@@ -137,6 +151,8 @@ app.whenReady().then(() => {
 
   ipcMain.on('app:version', (e) => { e.returnValue = app.getVersion(); });
   ipcMain.on('dl:name', (e, url, name) => { if (typeof url === 'string' && typeof name === 'string') { dlNames.set(url, name); if (dlNames.size > 50) dlNames.delete(dlNames.keys().next().value); } e.returnValue = true; });
+  ipcMain.on('crash:log', (e) => { e.returnValue = JSON.stringify({ log: crashRead(), memory: memInfo(), device: { model: 'ПК', os: process.platform + ' ' + require('os').release() } }); });
+  ipcMain.on('crash:clear', (e) => { try { fs.unlinkSync(crashPath()); } catch {} e.returnValue = true; });
   ipcMain.handle('file:show', (_e, p) => { if (typeof p === 'string' && p.startsWith(saveDir())) shell.showItemInFolder(p); });
   ipcMain.handle('folder:open', () => { const d = saveDir(); fs.mkdirSync(d, { recursive: true }); return shell.openPath(d); });
   ipcMain.handle('folder:get', () => describeDir(saveDir()));

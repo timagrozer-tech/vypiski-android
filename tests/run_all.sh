@@ -32,6 +32,7 @@ run "Раздел «Массовое создание», несколько ле
 run "Разбор после загрузки, поиск человека без таблицы, замер" python3 "$HERE/e2e/preparse.py" "$PAGE"
 run "Массовое создание: наборы и «Ещё»" python3 "$HERE/e2e/bulk_sets.py" "$PAGE"
 run "Массовое создание: продолжение после перерыва" python3 "$HERE/e2e/bulk_resume.py" "$PAGE"
+run "Отчёты о сбоях" python3 "$HERE/e2e/crash_reports.py" "$PAGE"
 run "Поиск именно этого человека"         python3 "$HERE/e2e/person_exact.py" "$PAGE"
 run "Нет фоновой нагрузки на экранах"     python3 "$HERE/e2e/idle_load.py" "$PAGE" "$WORK/profile"
 run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
