@@ -1,13 +1,8 @@
 name: Build Vypiski for Windows
 
+# Manual only: installers are built only on an explicit command (Actions → Build Vypiski for Windows → Run workflow).
 on:
   workflow_dispatch:
-  push:
-    branches: [main, dev]
-    paths:
-      - 'desktop/**'
-      - '*.zip'
-      - '.github/workflows/build-desktop.yml'
 
 permissions:
   contents: read

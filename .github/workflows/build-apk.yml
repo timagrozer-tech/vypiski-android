@@ -1,9 +1,8 @@
 name: Build Vypiski APK
 
+# Manual only: the APK is built only on an explicit command (Actions → Build Vypiski APK → Run workflow).
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
