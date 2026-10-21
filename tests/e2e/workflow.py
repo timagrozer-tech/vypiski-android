@@ -31,7 +31,7 @@ async def main():
     await pg.wait_for_selector('#bt .bt-res')
     await pg.evaluate("()=>VypiskiShell.go('ready')");await pg.wait_for_selector('#content .wf-bar .wf-chip')
     chips=await pg.locator('#content .wf-bar .wf-chip.s0').count();check('Готовые выписки: статус «Черновик»',chips>=5,chips)
-    check('Кнопки «Журнал выдачи» и «Очередь проверки»',await pg.locator('.wf-top button').all_inner_texts()==['Журнал выдачи','Очередь проверки'])
+    check('Кнопки «Журнал выдачи», «Очередь проверки», «Проверить актуальность»',await pg.locator('.wf-top button').all_inner_texts()==['Журнал выдачи','Очередь проверки','Проверить актуальность'])
     item=pg.locator('#content .sh-item[data-excerpt-id]').first;eid=await item.get_attribute('data-excerpt-id')
     r=await pg.evaluate("async id=>{try{await VypiskiWorkflow.issue(id,{recipient:'Военкомат',basis:'запрос 1'});return 'issued'}catch(e){return e.message}}",eid)
     check('Нельзя выдать неодобренную выписку','одобренную' in r,r)
@@ -54,7 +54,7 @@ async def main():
     hdr=[c.value for c in ws[3]];check('Журнал XLSX без ФИО по умолчанию','ФИО (из выписки)' not in hdr and 'Получатель' in hdr and ws.auto_filter.ref,hdr)
     # actuality: another version of order 50
     await imp(pg,[f'{FIX}/wfcases/Приказ_50_2025_изм.docx',f'{FIX}/wfcases/Приказ_7_2024.docx',f'{FIX}/wfcases/Приказ_10_2024.docx'])
-    await pg.evaluate("()=>VypiskiShell.go('ready')");await pg.wait_for_selector('#content .wf-bar .wf-chip');await pg.wait_for_timeout(800)
+    await pg.evaluate("()=>VypiskiShell.go('ready')");await pg.wait_for_selector('#content .wf-bar .wf-chip');await pg.click(".wf-top button:has-text('Проверить актуальность')");await pg.wait_for_timeout(2500)
     bad=await pg.locator('#content .wf-bar .wf-chip.bad').count();check('Выписки по приказу № 50 помечены «требует проверки»',bad>=1,bad)
     # queue
     await pg.click(".wf-top button:has-text('Очередь проверки')");await pg.wait_for_selector('.wf-q',timeout=30000)

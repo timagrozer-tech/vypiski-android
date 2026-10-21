@@ -28,6 +28,7 @@ run "Excel-аналитика (отчёты)"              python3 "$HERE/e2e/ex
 run "Excel Pro: импорт и сверка"            python3 "$HERE/e2e/excel_pro.py" "$PAGE"
 run "Зашифрованные резервные копии"         python3 "$HERE/e2e/encrypted_backup.py" "$PAGE"
 run "Согласование, выдача, очередь, Ctrl+K" python3 "$HERE/e2e/workflow.py" "$PAGE"
+run "Нет фоновой нагрузки на экранах"     python3 "$HERE/e2e/idle_load.py" "$PAGE" "$WORK/profile"
 run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
 if [ -n "${VYP_ELECTRON_DIR:-}" ]; then
   D="$WORK/desktop"; cp -r "$HERE/../desktop" "$D"; mkdir -p "$D/app"; cp "$PAGE/index.html" "$D/app/index.html"
