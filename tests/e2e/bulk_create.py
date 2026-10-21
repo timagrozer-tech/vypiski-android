@@ -47,7 +47,9 @@ async def main():
       n=await pg.evaluate("async()=>(await VypiskiRepository.all('excerpts')).length");check(f'[{width}] В «Готовых выписках»',n==len([x for x in names if x.endswith('.docx')]),n)
       await pg.screenshot(path=f'{OUT}/bulk-{width}.png',full_page=False)
       # from people search: selection opens the same section
-      await pg.evaluate("()=>VypiskiSearchEvents.open('Елисеев Дмитрий')");await pg.wait_for_selector('#sx .sx-ev input');await pg.locator('#sx .sx-ev input').first.check()
+      await pg.evaluate("()=>VypiskiSearchEvents.open('Елисеев Дмитрий')");await pg.wait_for_selector('#sx .sx-ev input, #sx button:has-text("Подготовить таблицу")')
+      if await pg.locator('#sx button:has-text("Подготовить таблицу")').count(): await pg.click('#sx button:has-text("Подготовить таблицу")')
+      await pg.wait_for_selector('#sx .sx-ev input');await pg.locator('#sx .sx-ev input').first.check()
       await pg.click("#sx .sx-bulk button:has-text('Создать выписки')");await pg.wait_for_selector('#bk .bk-job')
       check(f'[{width}] Выбор в поиске открывает раздел массового создания',await pg.locator('#bk .bk-job').count()==1)
       # text search: several years
