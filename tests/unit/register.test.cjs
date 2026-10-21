@@ -107,4 +107,7 @@ eq('order date never becomes an event date',x3.every(r=>r.start!=='10.03.2025'&&
 eq('soft-sign names',['лейтенанту Зотову Игорю Петровичу','лейтенанта Зотова Игоря Петровича','майора Белова Павла Ильича','майору Белову Павлу Ильичу'].map(x=>R.personsIn(x)[0].full),['Зотов Игорь Петрович','Зотов Игорь Петрович','Белов Павел Ильич','Белов Павел Ильич']);
 const x4=R.extract(P3(['1. Объявить благодарность рядовому Иванову Ивану Ивановичу и рядовому Иванову Игорю Ильичу.','2. Объявить выговор рядовому Иванову И.И.']));
 eq('initials-only mention with two namesakes needs checking',x4.filter(r=>r.ref==='п. 2').map(r=>[r.fio,r.check,r.why]),[['ИВАНОВ И.И.',true,'несколько людей с такими инициалами']]);
+// 12.77.4: four-digit item numbers are separate items (a person's row never gets the neighbour's text)
+const x5=R.extract(P3(['2675. Рядовому Елисееву Ивану Юрьевичу, АВ-772635, оператору расчёта.','Основание: рапорт военнослужащего.','2676. Рядовому Петрову Дмитрию Ивановичу, АВ-111222, стрелку.','Основание: рапорт военнослужащего.']));
+eq('four-digit items stay apart',x5.map(r=>[r.fio,r.ref,/Елисеев/.test(r.text)&&/Петров/.test(r.text)]),[['ЕЛИСЕЕВ И.Ю.','п. 2675',false],['ПЕТРОВ Д.И.','п. 2676',false]]);
 console.log(`ok=${ok} fail=${fail}`);process.exit(fail?1:0);
