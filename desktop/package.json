@@ -1,0 +1,47 @@
+{
+  "name": "vypiski-desktop",
+  "productName": "Vypiski",
+  "version": "12.74.0",
+  "description": "Выписки — приказы, выписки и таблица приказов. Работает без интернета.",
+  "author": "Выписки",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "37.2.6",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "ru.vypiski.desktop",
+    "productName": "Vypiski",
+    "copyright": "Выписки",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "app/**/*", "build/icon.png", "package.json"],
+    "asar": true,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": ["nsis", "portable"],
+      "executableName": "Vypiski",
+      "artifactName": "Vypiski-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Выписки",
+      "uninstallDisplayName": "Выписки",
+      "language": "1049",
+      "artifactName": "Vypiski-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Vypiski-Portable-${version}.${ext}"
+    }
+  }
+}
