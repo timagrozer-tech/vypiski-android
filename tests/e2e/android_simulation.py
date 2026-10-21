@@ -1,3 +1,4 @@
+import os as _o, sys as _s;_s.path.insert(0,_o.path.dirname(_o.path.abspath(__file__)));from authhelp import login
 """Simulates the Android app around the page: a fake window.VypiskiNative + /saf/<job>/<i> file serving with Range."""
 import os
 FIX=os.environ.get("VYP_FIX","fixtures-out")
@@ -66,6 +67,7 @@ async def main():
         pg.on("console", lambda m: errs.append(f"{m.type}: {m.text}") if m.type == "error" else None)
         pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
         await pg.goto(URL); await pg.wait_for_timeout(1500)
+        await login(pg)
         print("in-app class:", await pg.evaluate("document.documentElement.classList.contains('in-android-app')"))
         await pg.screenshot(path=f"{OUTDIR}/scen/app-home-empty.png")
         print("home storage text:", [l for l in (await pg.inner_text("#content")).split("\n") if "Данные хранятся" in l][:1])
@@ -79,7 +81,7 @@ async def main():
         await pg.wait_for_timeout(1500)
         st = await pg.evaluate("()=>{const j=VypiskiImportJob.state();return [j.running,j.done,j.total]}")
         print("  running:", st)
-        await pg.reload(); await pg.wait_for_timeout(2500)   # app killed mid-way
+        await pg.reload(); await login(pg); await pg.wait_for_timeout(2500)   # app killed mid-way
         saved = await pg.evaluate("()=>VypiskiRepository.count('orders')")
         print("  after kill: saved", saved, "| resume card:", await pg.is_visible("#impResumeCard"))
         await pg.click("#impResumeCard >> text=Продолжить загрузку")

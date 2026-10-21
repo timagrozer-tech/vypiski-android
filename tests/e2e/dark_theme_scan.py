@@ -1,3 +1,4 @@
+import os as _o, sys as _s;_s.path.insert(0,_o.path.dirname(_o.path.abspath(__file__)));from authhelp import login
 import os
 FIX=os.environ.get("VYP_FIX","fixtures-out")
 OUTDIR=os.environ.get("VYP_OUT","/tmp/vypiski-test-out");os.makedirs(OUTDIR,exist_ok=True)
@@ -22,6 +23,7 @@ async def m():
         b=await p.chromium.launch(); pg=await b.new_page(viewport={"width":int(sys.argv[2]) if len(sys.argv)>2 else 390,"height":844})
         pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
         await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html"); await pg.wait_for_timeout(1200)
+        await login(pg)
         await pg.evaluate("()=>document.querySelector(`[data-sec='import']`).click()"); await pg.wait_for_timeout(500)
         await pg.set_input_files("#wordFiles", files); await pg.wait_for_timeout(1500)
         await pg.evaluate("()=>[...document.querySelectorAll('#content button.primary')].find(x=>/Импорт/.test(x.textContent)).click()")
@@ -38,6 +40,10 @@ async def m():
             await pg.evaluate("s=>document.querySelector(`#appNav [data-sec='${s}'], #appMore [data-sec='${s}']`).click()",s); await pg.wait_for_timeout(800)
             await scan(s)
         await pg.evaluate("()=>document.querySelector(`[data-sec='search']`).click()"); await pg.wait_for_timeout(500)
+        await pg.wait_for_selector("#sx .sx-q"); await pg.fill("#sx .sx-q","Петров"); await pg.wait_for_timeout(600)
+        await scan("search people & events")
+        await pg.click("#sx .sx-tools button:has-text('Календарь')"); await pg.wait_for_timeout(400); await scan("search calendar"); await pg.click("#sx .sx-tools button:has-text('Список')")
+        await pg.click(".sx-mode button:has-text('Текст приказов')"); await pg.wait_for_selector("#dfs .df-q")
         await pg.locator("#content input >> visible=true").first.fill("Петров"); await pg.keyboard.press("Enter"); await pg.wait_for_timeout(1500)
         await scan("search results")
         await pg.locator("#content >> text=Приказ_105_2016 >> visible=true").first.click(); await pg.wait_for_timeout(800)
@@ -59,6 +65,9 @@ async def m():
                     await h_.first.click(); await pg.wait_for_timeout(400); await pg.evaluate("()=>{const a=document.activeElement;if(a&&a.type==='checkbox'&&!a.checked)a.click()}"); await pg.wait_for_timeout(400)
             await nxt.first.click(); await pg.wait_for_timeout(1000)
         await pg.screenshot(path=f"{OUTDIR}/tour/dark-wizard-end.png")
+        for label,js in [("queue","()=>VypiskiWorkflow.queuePage()"),("journal","()=>VypiskiWorkflow.journalPage()"),("help","()=>{VypiskiWorkflow.helpPage();document.querySelectorAll('#wfHelp details').forEach(d=>d.open=true)}"),("palette","()=>VypiskiWorkflow.palette()"),("notes","()=>{document.getElementById('wfPal')?.remove();VypiskiWorkflow.openNotes()}"),("excel import tab","()=>{document.getElementById('wfNotes')?.remove();VypiskiRegisterView.open().then(()=>document.getElementById('rg')?._xpShow?.('import'))}"),("excel templates tab","()=>document.getElementById('rg')?._xpShow?.('tpl')"),("print center","()=>{VypiskiPrintCenter.open([{title:'Проба',t:VypiskiDocument.BUILTIN[0],model:VypiskiDocument.compose({template:VypiskiDocument.BUILTIN[0],requisites:{number:'1',date:'2024-01-21'},fragments:[{loc:'p1',kind:'p',role:'lead',text:'1. Текст.'}],header:['ПРИКАЗ'],signatures:[],certify:null})}])}"),("lock screen","()=>{document.getElementById('pc')?.remove();VypiskiAuth.lock()}")]:
+            await pg.evaluate(js); await pg.wait_for_timeout(1200); await scan(label)
+        await pg.fill('#vAuth input[type=password]',__import__('authhelp').PASSWORD); await pg.click('#vAuth button[type=submit]'); await pg.wait_for_timeout(800)
         print("TOTAL",total)
         await b.close()
 asyncio.run(m())

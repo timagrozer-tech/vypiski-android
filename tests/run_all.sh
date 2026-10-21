@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Выписки — all automated checks. Builds NOTHING (no APK/EXE): unpacks the newest project ZIP, generates synthetic
 # test data (invented names) and runs unit + browser tests against the page in headless Chromium.
-# Needs: node ≥ 18, python3 with playwright (+ `python3 -m playwright install chromium`), python-docx, Pillow.
+# Needs: node ≥ 18, python3 with playwright (+ `python3 -m playwright install chromium`), python-docx, openpyxl, Pillow.
+# Optional: VYP_ELECTRON_DIR=<unpacked Electron runtime> + xvfb-run — then the Windows shell is also checked (nothing is packaged).
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ZIP=$(ls -1 "$HERE"/../Vypiski-Android-Stage-*-project.zip | sort -V | tail -n 1)
@@ -20,4 +21,16 @@ run "Фоновый импорт и продолжение"          python3 "$H
 run "Имитация приложения Android"           python3 "$HERE/e2e/android_simulation.py" "$PAGE"
 run "Тёмная тема — телефон"                 python3 "$HERE/e2e/dark_theme_scan.py" "$PAGE" 390
 run "Тёмная тема — Windows"                 python3 "$HERE/e2e/dark_theme_scan.py" "$PAGE" 1366
+run "Вход, блокировка, роли (12.77)"        python3 "$HERE/e2e/auth_roles.py" "$PAGE"
+run "Поиск «Люди и события»"                python3 "$HERE/e2e/search_people_events.py" "$PAGE"
+run "Массовое создание и центр печати"      python3 "$HERE/e2e/batch_and_print.py" "$PAGE"
+run "Excel-аналитика (отчёты)"              python3 "$HERE/e2e/excel_reports.py" "$PAGE"
+run "Excel Pro: импорт и сверка"            python3 "$HERE/e2e/excel_pro.py" "$PAGE"
+run "Зашифрованные резервные копии"         python3 "$HERE/e2e/encrypted_backup.py" "$PAGE"
+run "Согласование, выдача, очередь, Ctrl+K" python3 "$HERE/e2e/workflow.py" "$PAGE"
+run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
+if [ -n "${VYP_ELECTRON_DIR:-}" ]; then
+  D="$WORK/desktop"; cp -r "$HERE/../desktop" "$D"; mkdir -p "$D/app"; cp "$PAGE/index.html" "$D/app/index.html"
+  VYP_DESKTOP="$D" run "Windows-оболочка: папки, печать, PDF" python3 "$HERE/e2e/desktop_live_folders.py"
+fi
 echo; echo "Готово. Отчёты и скриншоты: $WORK/out"

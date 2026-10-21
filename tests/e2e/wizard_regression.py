@@ -1,3 +1,4 @@
+import os as _o, sys as _s;_s.path.insert(0,_o.path.dirname(_o.path.abspath(__file__)));from authhelp import login
 import os
 FIX=os.environ.get("VYP_FIX","fixtures-out")
 OUTDIR=os.environ.get("VYP_OUT","/tmp/vypiski-test-out");os.makedirs(OUTDIR,exist_ok=True)
@@ -28,6 +29,7 @@ async def main():
         pg.on("console", lambda m: errs.append(f"{m.type}: {m.text}") if m.type == "error" else None)
         pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
         await pg.goto(f"http://127.0.0.1:{port}/index.html")
+        await login(pg)
         await pg.wait_for_timeout(1500)
         await nav(pg, "import")
         await pg.set_input_files("#wordFiles", files)

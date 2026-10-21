@@ -1,3 +1,4 @@
+import os as _o, sys as _s;_s.path.insert(0,_o.path.dirname(_o.path.abspath(__file__)));from authhelp import login
 import os
 FIX=os.environ.get("VYP_FIX","fixtures-out")
 OUTDIR=os.environ.get("VYP_OUT","/tmp/vypiski-test-out");os.makedirs(OUTDIR,exist_ok=True)
@@ -14,6 +15,7 @@ async def main():
     async with async_playwright() as p:
         br = await p.chromium.launch(); pg = await br.new_page()
         await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html"); await pg.wait_for_timeout(1200)
+        await login(pg)
         same = diff = 0
         for f in files:
             a, b = await pg.evaluate(JS, base64.b64encode(open(f, "rb").read()).decode())

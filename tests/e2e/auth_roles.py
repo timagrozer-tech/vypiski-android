@@ -1,0 +1,112 @@
+import os, sys as _s;_s.path.insert(0,os.path.dirname(os.path.abspath(__file__)));from authhelp import login,PASSWORD
+FIX=os.environ.get("VYP_FIX","fixtures-out");OUTDIR=os.environ.get("VYP_OUT","/tmp/vypiski-test-out")
+import asyncio, sys, os, glob, http.server, threading, functools, re
+from playwright.async_api import async_playwright
+ROOT=sys.argv[1]; OUT=f'{OUTDIR}/authout'; os.makedirs(OUT,exist_ok=True)
+files=sorted(glob.glob(f'{FIX}/xlcases/*.docx'))
+h=functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT); h.log_message=lambda *a:None
+srv=http.server.ThreadingHTTPServer(("127.0.0.1",0),h); threading.Thread(target=srv.serve_forever,daemon=True).start()
+URL=f"http://127.0.0.1:{srv.server_address[1]}/index.html"
+res=[]
+def check(n,ok,d=''):res.append(bool(ok));print(('PASS ' if ok else 'FAIL ')+n+(' — '+str(d) if d else ''))
+async def main():
+  src=open(ROOT+'/index.html',encoding='utf-8').read()
+  check('В исходниках нет пароля 1234566',not re.search(r"['\"]1234566['\"]",src.replace("1234566|","")))
+  async with async_playwright() as p:
+    b=await p.chromium.launch()
+    ctx=await b.new_context(viewport={"width":1280,"height":860},locale="ru-RU",accept_downloads=True);pg=await ctx.new_page()
+    errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
+    await pg.goto(URL);await pg.wait_for_selector('#vAuth h1')
+    check('Первый запуск: создание администратора',await pg.inner_text('#vAuth h1')=='Первый запуск')
+    vis=await pg.evaluate("()=>getComputedStyle(document.getElementById('content')).visibility");check('До входа данные скрыты',vis=='hidden',vis)
+    ins=pg.locator('#vAuth input');await ins.nth(2).fill('1234566');await ins.nth(3).fill('1234566');await pg.click('#vAuth button[type=submit]');await pg.wait_for_timeout(300)
+    check('Простой пароль 1234566 не принимается',(await pg.inner_text('#vAuth .err'))!='',await pg.inner_text('#vAuth .err'))
+    await login(pg)
+    check('После входа программа открыта',await pg.evaluate("()=>!document.documentElement.classList.contains('v-locked')&&VypiskiAuth.user().role==='admin'"))
+    st=await pg.evaluate("async()=>{const d=await new Promise(r=>{const q=indexedDB.open('vypiski-auth-v1');q.onsuccess=()=>r(q.result)});return new Promise(r=>{const g=d.transaction('users').objectStore('users').getAll();g.onsuccess=()=>r(g.result)})}")
+    u=st[0];check('Хранится только хеш PBKDF2 с солью',len(u['hash'])==64 and len(u['salt'])==32 and u['iter']>=310000 and PASSWORD not in str(u))
+    # import as admin
+    await pg.evaluate("()=>document.querySelector(`[data-sec='import']`).click()");await pg.wait_for_timeout(400)
+    await pg.set_input_files("#wordFiles",files);await pg.wait_for_timeout(1200)
+    await pg.evaluate("()=>[...document.querySelectorAll('#content button.primary')].find(x=>/Импорт/.test(x.textContent)).click()")
+    for _ in range(100):
+      await pg.wait_for_timeout(300)
+      if not await pg.evaluate("()=>VypiskiImportJob.state().running"):break
+    # reload → login again
+    await pg.reload();await pg.wait_for_selector('#vAuth h1')
+    check('Перезапуск снова требует вход',await pg.inner_text('#vAuth h1')=='Вход в «Выписки»')
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill('admin');await ins.nth(1).fill('неверный-пароль');await pg.click('#vAuth button[type=submit]');await pg.wait_for_timeout(1500)
+    check('Неверный пароль отклонён',await pg.inner_text('#vAuth .err')=='Неверный логин или пароль')
+    await login(pg)
+    # idle lock and continue on the same screen
+    await pg.evaluate("()=>VypiskiShell.go('search')");await pg.wait_for_selector('#sx .sx-q');await pg.fill('#sx .sx-q','Иванов')
+    await pg.evaluate("()=>VypiskiAuth._testIdle(1500)");await pg.wait_for_timeout(3200)
+    lk=await pg.evaluate("()=>VypiskiAuth.isLocked()");txt=await pg.inner_text('#vAuth')
+    check('Блокировка при бездействии',lk and 'заблокирована' in txt,txt[:80])
+    await pg.screenshot(path=f'{OUT}/locked.png')
+    await pg.fill('#vAuth input[type=password]',PASSWORD);await pg.click('#vAuth button[type=submit]');await pg.wait_for_selector('#vAuth',state='detached')
+    check('После разблокировки — тот же экран и запрос',await pg.input_value('#sx .sx-q')=='Иванов')
+    await pg.evaluate("()=>VypiskiAuth._testIdle(600000)")
+    # admin creates operator and viewer
+    await pg.evaluate("()=>document.querySelector(`#appMore [data-sec='settings'], #appNav [data-sec='settings']`)?.click()||VypiskiShell.go('settings')");await pg.wait_for_selector('#vAuthAdmin .new')
+    tmp={}
+    for login_,role in [('oper','operator'),('view','viewer')]:
+      await pg.fill('#vAuthAdmin .new input >> nth=0',login_);await pg.select_option('#vAuthAdmin .new select',role);await pg.click('#vAuthAdmin .new button')
+      await pg.wait_for_selector(f'#vAuthAdmin .tmp:has-text("{login_}") code');tmp[login_]=await pg.inner_text('#vAuthAdmin .tmp code')
+    await pg.click("#vAuthAdmin .u:has-text('(view)') button:has-text('Скрывать ФИО')");await pg.wait_for_timeout(400)
+    check('Администратор включил скрытие ФИО для «Просмотр»','ФИО в списках скрыты' in await pg.inner_text("#vAuthAdmin .u:has-text('(view)')"))
+    check('Временные пароли выданы',all(len(v)==10 for v in tmp.values()) and tmp['oper']!=tmp['view'],list(tmp))
+    await pg.screenshot(path=f'{OUT}/users.png',full_page=True)
+    au=await pg.evaluate("async()=>(await VypiskiAudit.list({limit:50})).map(e=>e.type+':'+(e.details.actor||''))")
+    check('Журнал: кто создал пользователей',any(x.startswith('auth.user-created:admin') for x in au),au[:5])
+    # viewer
+    await pg.reload();await pg.wait_for_selector('#vAuth h1');await pg.wait_for_timeout(1000)
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill('view');await ins.nth(1).fill(tmp['view']);await pg.click('#vAuth button[type=submit]');await pg.wait_for_timeout(2500)
+    await pg.wait_for_selector('#vAuth h1:has-text("Смена пароля")')
+    check('Первый вход с временным паролем → смена пароля',True)
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill(tmp['view']);await ins.nth(1).fill(tmp['view']);await pg.click('#vAuth button[type=submit]');await pg.wait_for_timeout(1200)
+    check('Нельзя оставить временный пароль',(await pg.inner_text('#vAuth .err'))!='')
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill('Просмотр-2026!');await ins.nth(1).fill('Просмотр-2026!');await pg.click('#vAuth button[type=submit]');await pg.wait_for_selector('#vAuth',state='detached')
+    check('Вход «Просмотр»',await pg.evaluate("()=>VypiskiAuth.user().role")=='viewer')
+    hidden=await pg.evaluate("()=>[...document.querySelectorAll('[data-sec=create],[data-sec=import]')].every(b=>getComputedStyle(b).display==='none')")
+    check('«Просмотр»: нет «Создать» и «Импорт»',hidden,await pg.evaluate("()=>[...document.querySelectorAll('[data-sec=create],[data-sec=import]')].filter(b=>getComputedStyle(b).display!=='none').map(b=>b.outerHTML.slice(0,120)+' | '+(b.parentElement.id||b.parentElement.className))"))
+    await pg.evaluate("()=>VypiskiShell.go('search')");await pg.wait_for_selector('#sx .sx-q');await pg.fill('#sx .sx-q','Иванов');await pg.wait_for_timeout(400)
+    nm=await pg.locator('#sx .sx-ph strong').all_inner_texts();check('«Просмотр»: ФИО в списках скрыты',nm and all('***' in x for x in nm) and not any('Иванов Иван' in x for x in nm),nm[:3])
+    r=await pg.evaluate("async()=>{try{await VypiskiRepository.put('excerpts',{id:'x1',title:'x'});return 'ok'}catch(e){return e.name+': '+e.message}}")
+    check('«Просмотр»: запись выписки запрещена на уровне данных',r.startswith('NotAllowedError'),r)
+    r=await pg.evaluate("async()=>{const o=(await VypiskiRepository.all('orders'))[0];try{await VypiskiRepository.remove('orders',o.id);return 'deleted'}catch(e){return e.name}}")
+    check('«Просмотр»: удаление приказа запрещено',r=='NotAllowedError',r)
+    await pg.evaluate("()=>VypiskiRegisterView.open()")
+    await pg.wait_for_function("()=>/Разобрано/.test(document.querySelector('#rg .rg-status')?.textContent||'')",timeout=30000)
+    got=[]
+    pg.on('download',lambda d:got.append(d))
+    await pg.click("#rg button:has-text('Скачать XLSX')");await pg.wait_for_timeout(1500)
+    t=await pg.evaluate("()=>document.getElementById('vToast')?.textContent||''")
+    check('«Просмотр»: выгрузка XLSX заблокирована',not got and 'Недостаточно прав' in t,(len(got),t))
+    r=await pg.evaluate("async()=>{try{VypiskiPrintCenter&&await VypiskiAuth.require('print');return 'ok'}catch(e){return e.name}}")
+    check('«Просмотр»: печать запрещена',r=='NotAllowedError')
+    # operator
+    await pg.reload();await pg.wait_for_selector('#vAuth h1')
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill('oper');await ins.nth(1).fill(tmp['oper']);await pg.click('#vAuth button[type=submit]');await pg.wait_for_selector('#vAuth h1:has-text("Смена пароля")')
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill('Оператор-2026!');await ins.nth(1).fill('Оператор-2026!');await pg.click('#vAuth button[type=submit]');await pg.wait_for_selector('#vAuth',state='detached')
+    r=await pg.evaluate("async()=>{try{await VypiskiRepository.put('excerpts',{id:'x2',title:'проба'});await VypiskiAudit.log('test',{});return 'ok'}catch(e){return e.name}}")
+    check('«Оператор»: может сохранить выписку',r=='ok',r)
+    r=await pg.evaluate("async()=>{try{await VypiskiRepository.remove('excerpts','x2');return 'deleted'}catch(e){return e.name}}")
+    check('«Оператор»: удаление — только администратор',r=='NotAllowedError',r)
+    await pg.evaluate("()=>VypiskiRegisterView.open()")
+    await pg.wait_for_function("()=>/Разобрано/.test(document.querySelector('#rg .rg-status')?.textContent||'')",timeout=30000)
+    async with pg.expect_download() as d:
+      await pg.click("#rg button:has-text('Скачать XLSX')")
+    dl=await d.value;check('«Оператор»: выгрузка XLSX разрешена',dl.suggested_filename.endswith('.xlsx'))
+    r=await pg.evaluate("async()=>{const d=await new Promise(r=>{const q=indexedDB.open('vypiski-auth-v1');q.onsuccess=()=>r(q.result)});try{await new Promise((res,rej)=>{const t=d.transaction('users','readwrite');t.objectStore('users').put({login:'hack',role:'admin'});t.oncomplete=res;t.onerror=()=>rej(t.error)});return 'written'}catch(e){return e.name}}")
+    check('Учётные записи нельзя изменить в обход раздела',r=='NotAllowedError',r)
+    # brute force
+    await pg.reload();await pg.wait_for_selector('#vAuth h1')
+    for i in range(5):
+      ins=pg.locator('#vAuth input');await ins.nth(0).fill('oper');await ins.nth(1).fill('плохой'+str(i));await pg.click('#vAuth button[type=submit]');await pg.wait_for_timeout(900)
+    ins=pg.locator('#vAuth input');await ins.nth(0).fill('oper');await ins.nth(1).fill('Оператор-2026!');await pg.click('#vAuth button[type=submit]');await pg.wait_for_timeout(900)
+    e=await pg.inner_text('#vAuth .err');check('После 5 ошибок — пауза даже для верного пароля','Слишком много попыток' in e,e)
+    check('Без ошибок JS',not errs,errs[:3])
+    await b.close()
+  print(f'{sum(res)}/{len(res)}')
+asyncio.run(main())

@@ -7,6 +7,7 @@ const { app, BrowserWindow, protocol, net, session, shell, Menu, ipcMain, dialog
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
+const { Sources } = require('./sources');
 
 const APP_DIR = path.join(__dirname, 'app');
 const HOST = 'vypiski';
@@ -34,6 +35,7 @@ const saveDir = () => readCfg().saveDir || defaultSaveDir();
 const describeDir = (d) => d === defaultSaveDir() ? 'Загрузки \\ Выписки' : d;
 
 let win = null;
+let sources = null;
 let blocker = -1;
 
 function uniquePath(dir, name) {
@@ -145,6 +147,48 @@ app.whenReady().then(() => {
     return { ok: true, where: describeDir(c.saveDir) };
   });
   ipcMain.handle('folder:reset', () => { const c = readCfg(); delete c.saveDir; writeCfg(c); return describeDir(defaultSaveDir()); });
+  // 12.77 print center: list of printers, printing without the system dialog to a chosen printer, PDF into the save folder.
+  // The page sends ready HTML; it is written to a private temp file, printed by a hidden window with scripts disabled, then deleted.
+  ipcMain.handle('print:printers', async () => { try { return (await win.webContents.getPrintersAsync()).map((p) => ({ name: p.name, displayName: p.displayName, isDefault: !!p.isDefault })); } catch { return []; } });
+  const withPrintWindow = async (html, fn) => {
+    if (typeof html !== 'string' || html.length > 80 * 1024 * 1024) throw new Error('bad document');
+    const dir = path.join(app.getPath('temp'), 'vypiski-print'); fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `p-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+    fs.writeFileSync(file, html, 'utf8');
+    const w = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false } });
+    try { await w.loadFile(file); return await fn(w); } finally { if (!w.isDestroyed()) w.destroy(); fs.rm(file, { force: true }, () => {}); }
+  };
+  ipcMain.handle('print:html', async (_e, html, o = {}) => {
+    try {
+      return await withPrintWindow(html, (w) => new Promise((res) => w.webContents.print({
+        silent: !o.dialog && typeof o.deviceName === 'string' && !!o.deviceName, deviceName: o.dialog ? undefined : o.deviceName || undefined,
+        copies: Math.max(1, Math.min(20, o.copies | 0 || 1)), landscape: !!o.landscape, printBackground: true, margins: { marginType: 'none' }, pageSize: 'A4',
+      }, (ok, reason) => res({ ok, reason: ok ? '' : String(reason || 'cancelled') }))));
+    } catch (e) { return { ok: false, reason: e.message }; }
+  });
+  ipcMain.handle('print:pdf', async (_e, html, name, landscape) => {
+    try {
+      const data = await withPrintWindow(html, (w) => w.webContents.printToPDF({ landscape: !!landscape, printBackground: true, pageSize: 'A4', margins: { marginType: 'none' }, preferCSSPageSize: true, generateDocumentOutline: false }));
+      const dir = saveDir(); fs.mkdirSync(dir, { recursive: true });
+      const full = uniquePath(dir, String(name || 'Выписки.pdf'));
+      const tmp = full + '.part'; fs.writeFileSync(tmp, data); fs.renameSync(tmp, full); // atomic: no half-written PDF under the final name
+      return { ok: true, path: full, where: describeDir(dir) + ' \\ ' + path.basename(full) };
+    } catch (e) { return { ok: false, reason: e.message }; }
+  });
+  // 12.77 «живые папки»: локальные и сетевые папки с приказами отслеживаются, пока программа открыта (только чтение)
+  sources = new Sources({ dir: path.join(app.getPath('userData'), 'sources'), onEvent: (e) => { if (win && !win.isDestroyed()) win.webContents.send('sources:event', e); } });
+  ipcMain.handle('sources:list', () => sources.describe());
+  ipcMain.handle('sources:add', async (_e, p, label) => {
+    try {
+      if (!p) { const r = await dialog.showOpenDialog(win, { title: 'Папка с приказами (только чтение)', properties: ['openDirectory'] }); if (r.canceled || !r.filePaths[0]) return { cancelled: true }; p = r.filePaths[0]; }
+      const s = await sources.add(String(p), label); return { ok: true, id: s.id };
+    } catch (e) { return { ok: false, reason: e.code === 'ENOENT' ? 'папка не найдена или сеть недоступна' : e.message }; }
+  });
+  ipcMain.handle('sources:remove', (_e, id) => { sources.remove(String(id)); return true; });
+  ipcMain.handle('sources:mode', (_e, id, m) => { sources.setMode(String(id), String(m)); return true; });
+  ipcMain.handle('sources:interval', (_e, id, sec) => { sources.setInterval(String(id), +sec); return true; });
+  ipcMain.handle('sources:scan', (_e, id) => sources.scanNow(String(id), 'вручную'));
+  ipcMain.handle('sources:read', async (_e, id, rel) => { const b = await sources.read(String(id), String(rel)); return new Uint8Array(b.buffer, b.byteOffset, b.byteLength); });
   // long imports: keep the PC awake and show progress on the taskbar button
   ipcMain.on('import:begin', () => { if (blocker < 0) blocker = powerSaveBlocker.start('prevent-app-suspension'); if (win) win.setProgressBar(0.001); });
   ipcMain.on('import:progress', (_e, done, total) => { if (win && total > 0) win.setProgressBar(Math.max(0.001, Math.min(1, done / total))); });
@@ -160,6 +204,9 @@ app.whenReady().then(() => {
 
   buildMenu();
   createWindow();
+  win.webContents.once('did-finish-load', () => sources.start());
 });
+
+app.on('before-quit', () => { try { sources?.stop(); } catch { } });
 
 app.on('window-all-closed', () => app.quit());

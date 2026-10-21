@@ -1,3 +1,4 @@
+import os as _o, sys as _s;_s.path.insert(0,_o.path.dirname(_o.path.abspath(__file__)));from authhelp import login
 """Acceptance checks from DESIGN_SPEC 2.0 (no builds): run against the page in a browser and in a simulated Android app."""
 import os
 FIX=os.environ.get("VYP_FIX","fixtures-out")
@@ -40,6 +41,7 @@ async def main():
         ctx=await b.new_context(viewport={"width":1366,"height":900},locale="ru-RU",accept_downloads=True); pg=await ctx.new_page()
         errs=[];pg.on("pageerror",lambda e:errs.append(str(e)));pg.on("dialog",lambda d:asyncio.ensure_future(d.accept()))
         await pg.goto(URL);await pg.wait_for_timeout(1500)
+        await login(pg)
         await pg.evaluate("()=>document.querySelector(`[data-sec='import']`).click()");await pg.wait_for_timeout(600)
         await pg.set_input_files("#wordFiles",ZIP);await pg.wait_for_timeout(2500)
         status=await pg.inner_text("#impPrepStatus");struct=await pg.evaluate("()=>{const d=document.querySelector('#content details');return d?d.innerText:''}")
@@ -110,6 +112,7 @@ async def main():
         ctx=await b.new_context(viewport={"width":390,"height":844},locale="ru-RU");await ctx.add_init_script(f"window.__E={json.dumps([['приказы.zip',os.path.getsize(ZIP),0]])};"+stub)
         pg=await ctx.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)));pg.on("dialog",lambda d:asyncio.ensure_future(d.accept()))
         await pg.goto(URL);await pg.wait_for_timeout(1500)
+        await login(pg)
         await pg.evaluate("()=>window.__share()");await pg.wait_for_timeout(3000)
         status=await pg.inner_text("#impPrepStatus")
         check("Android (SAF): ZIP прочитан по частям, найдено 9 документов","Найдено документов: 9" in status,status)

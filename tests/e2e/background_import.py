@@ -1,3 +1,4 @@
+import os as _o, sys as _s;_s.path.insert(0,_o.path.dirname(_o.path.abspath(__file__)));from authhelp import login
 import os
 FIX=os.environ.get("VYP_FIX","fixtures-out")
 OUTDIR=os.environ.get("VYP_OUT","/tmp/vypiski-test-out");os.makedirs(OUTDIR,exist_ok=True)
@@ -32,6 +33,7 @@ async def main():
         pg.on("console", lambda m: errs.append(f"{m.type}: {m.text}") if m.type == "error" else None)
         pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
         await pg.goto(URL); await pg.wait_for_timeout(1500)
+        await login(pg)
 
         print("== 1. import, then browse other sections while it runs")
         await pick_and_start(pg)
@@ -43,7 +45,7 @@ async def main():
         await pg.locator("#content input >> visible=true").first.fill("Петров"); await pg.keyboard.press("Enter")
         await pg.wait_for_timeout(1500)
         await pg.screenshot(path=f"{out}/2-search-while-importing.png")
-        print("  search works during import:", "Результатов" in await pg.inner_text("#content"), await pg.evaluate(STATE))
+        t=await pg.inner_text("#content");print("  search works during import:", "Результатов" in t or "Людей:" in t, await pg.evaluate(STATE))
 
         print("== 2. page hidden (another tab in front)")
         other = await ctx.new_page(); await other.goto("about:blank"); await other.bring_to_front()
@@ -55,7 +57,7 @@ async def main():
 
         print("== 3. 'crash' (reload) in the middle, then continue")
         st = await pg.evaluate(STATE); print("  before reload:", st)
-        await pg.reload(); await pg.wait_for_timeout(2500)
+        await pg.reload(); await login(pg); await pg.wait_for_timeout(2500)
         await pg.screenshot(path=f"{out}/3-after-crash-home.png")
         n_after_crash = await pg.evaluate("()=>VypiskiRepository.count('orders')")
         print("  orders saved before crash:", n_after_crash, "| resume card:", await pg.is_visible("#impResumeCard"))
