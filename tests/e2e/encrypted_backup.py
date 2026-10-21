@@ -62,7 +62,7 @@ async def main():
     fo=await p2.evaluate("async()=>{const o=await VypiskiRepository.all('orders');let ok=0,n=0;for(const x of o){if(!x.originalStored)continue;n++;const g=await VypiskiImport.getOriginal(x.fileSha256);if(g&&await VypiskiImport.sha256(new Uint8Array(await g.blob.arrayBuffer()))===x.fileSha256)ok++}return [ok,n]}")
     check('Исходные файлы Word восстановлены байт-в-байт',fo[0]==fo[1],fo)
     await p2.evaluate("()=>VypiskiSearchEvents.open('')");await p2.wait_for_timeout(500)
-    if await p2.locator("button:has-text('Подготовить таблицу людей и событий')").count(): await p2.click("button:has-text('Подготовить таблицу людей и событий')")
+    if await p2.locator("button:has-text('Подготовить таблицу')").count(): await p2.click("button:has-text('Подготовить таблицу')")
     await p2.wait_for_selector('#sx .sx-person',timeout=30000)
     check('Поиск работает после восстановления',await p2.locator('#sx .sx-person').count()>0)
     au=await p2.evaluate("async()=>(await VypiskiAudit.list({limit:20})).map(e=>e.type)");check('Журнал: восстановление записано','backup.restored' in au)

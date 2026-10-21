@@ -26,7 +26,7 @@ async def main():
       n0=await pg.evaluate("async()=>(await VypiskiRepository.all('excerpts')).length")
       # select via search UI: all leave events
       await pg.evaluate("()=>VypiskiShell.go('search')");await pg.wait_for_selector('.sx-mode');await pg.click(".sx-mode button:has-text('Люди и события')");await pg.wait_for_timeout(300)
-      if await pg.locator("button:has-text('Подготовить таблицу людей и событий')").count(): await pg.click("button:has-text('Подготовить таблицу людей и событий')")
+      if await pg.locator("button:has-text('Подготовить таблицу')").count(): await pg.click("button:has-text('Подготовить таблицу')")
       await pg.wait_for_selector('#sx .sx-person',timeout=30000)
       await pg.evaluate("()=>document.querySelector('#sx .sx-f').classList.add('open')")
       await pg.click("#sx .sx-row button.sx-chip:has-text('Отпуск')");await pg.wait_for_timeout(200)

@@ -45,8 +45,8 @@ async def main():
       picked=[x for x in sel if x[:3].strip('. ').isdigit()];check(f'Мастер «{q}»: только пункт 31',len(picked)==1 and picked[0].startswith('31.'),picked)
     # people & events
     await pg.evaluate("()=>VypiskiSearchEvents.open('')");await pg.wait_for_timeout(400)
-    if await pg.locator("button:has-text('Подготовить таблицу людей и событий')").count():await pg.click("button:has-text('Подготовить таблицу людей и событий')")
-    await pg.wait_for_selector('#sx .sx-q',timeout=30000)
+    if await pg.locator("button:has-text('Подготовить таблицу')").count():await pg.click("button:has-text('Подготовить таблицу')")
+    await pg.wait_for_function("()=>VypiskiRegisterView.builtAt()&&document.querySelector('#sx .sx-q')&&!document.querySelector('#sx .sx-find')",timeout=30000)
     for q,want in [('Елисеев Дмитрий',['Елисеев Дмитрий Алексеевич']),('Елисееву Дмитрию',['Елисеев Дмитрий Алексеевич']),('СУ-067677',['Елисеев Дмитрий Алексеевич']),('су 067677',['Елисеев Дмитрий Алексеевич']),('Елисеев',['Елисеев Дмитрий Алексеевич','Елисеев Иван Юрьевич'])]:
       await pg.fill('#sx .sx-q',q);await pg.wait_for_timeout(700);names=sorted(await pg.locator('#sx .sx-ph strong').all_inner_texts())
       check(f'Люди и события «{q}»',names==sorted(want),names)

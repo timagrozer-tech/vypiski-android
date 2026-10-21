@@ -24,8 +24,8 @@ async def main():
         if not await pg.evaluate("()=>VypiskiImportJob.state().running"):break
       await pg.evaluate("()=>VypiskiShell.go('search')");await pg.wait_for_selector('.sx-mode')
       check(f'[{width}] По умолчанию лёгкий «Текст приказов», таблица не строится сама',await pg.locator('.sx-mode button.on').inner_text()=='Текст приказов' and not await pg.evaluate("()=>VypiskiRegisterView.builtAt()"))
-      await pg.click(".sx-mode button:has-text('Люди и события')");await pg.wait_for_selector("button:has-text('Подготовить таблицу людей и событий')")
-      await pg.click("button:has-text('Подготовить таблицу людей и событий')")
+      await pg.click(".sx-mode button:has-text('Люди и события')");await pg.wait_for_selector("button:has-text('Подготовить таблицу')")
+      await pg.click("button:has-text('Подготовить таблицу')")
       await pg.wait_for_selector('#sx .sx-person',timeout=30000)
       await pg.fill('#sx .sx-q','иванова');await pg.wait_for_timeout(250)
       names=await pg.locator('#sx .sx-ph strong').all_inner_texts()

@@ -29,6 +29,8 @@ run "Excel Pro: импорт и сверка"            python3 "$HERE/e2e/exce
 run "Зашифрованные резервные копии"         python3 "$HERE/e2e/encrypted_backup.py" "$PAGE"
 run "Согласование, выдача, очередь, Ctrl+K" python3 "$HERE/e2e/workflow.py" "$PAGE"
 run "Раздел «Массовое создание», несколько лет в поиске" python3 "$HERE/e2e/bulk_create.py" "$PAGE"
+run "Разбор после загрузки, поиск человека без таблицы, замер" python3 "$HERE/e2e/preparse.py" "$PAGE"
+run "Массовое создание: наборы и «Ещё»" python3 "$HERE/e2e/bulk_sets.py" "$PAGE"
 run "Поиск именно этого человека"         python3 "$HERE/e2e/person_exact.py" "$PAGE"
 run "Нет фоновой нагрузки на экранах"     python3 "$HERE/e2e/idle_load.py" "$PAGE" "$WORK/profile"
 run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
