@@ -51,6 +51,9 @@ run "Выписки по списку (фото)"              python3 "$HERE/e2
 run "Список, снятый под углом"             python3 "$HERE/e2e/list_photo_angle.py" "$PAGE"
 run "Параграф из блоков «Основание:»"       python3 "$HERE/e2e/unnumbered_blocks.py" "$PAGE"
 run "Имена в падежах (petrovich)"           python3 "$HERE/e2e/name_cases.py" "$PAGE"
+run "Групповые пункты: только своя строка"  python3 "$HERE/e2e/group_points.py" "$PAGE"
+run "Выписки по списку: выбор событий, просмотр, фильтры" python3 "$HERE/e2e/list_preview.py" "$PAGE"
+run "Поиск «Текст приказов» по эскизу"      python3 "$HERE/e2e/search_text_table.py" "$PAGE"
 run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
 if [ -n "${VYP_ELECTRON_DIR:-}" ]; then
   D="$WORK/desktop"; cp -r "$HERE/../desktop" "$D"; mkdir -p "$D/app"; cp "$PAGE/index.html" "$D/app/index.html"

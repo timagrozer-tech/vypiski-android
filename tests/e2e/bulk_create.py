@@ -13,7 +13,7 @@ async def main():
     b=await p.chromium.launch()
     for width in [1366,390]:
       ctx=await b.new_context(viewport={"width":width,"height":900},locale="ru-RU",accept_downloads=True);pg=await ctx.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
-      await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html");await login(pg)
+      await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html");await login(pg);await pg.evaluate("()=>localStorage.setItem('vypiski.s3.off','1')") # 12.79.12: the advanced (old) text search
       await pg.evaluate("()=>document.querySelector(`[data-sec='import']`).click()");await pg.wait_for_timeout(400)
       await pg.set_input_files("#wordFiles",files);await pg.wait_for_timeout(1500)
       await pg.evaluate("()=>[...document.querySelectorAll('#content button.primary')].find(x=>/Импорт/.test(x.textContent)).click()")
@@ -35,8 +35,10 @@ async def main():
       await pg.click("#bk button:has-text('Выбрать всех')")
       await pg.click("#bk button:has-text('Подготовить выписки')");await pg.wait_for_selector("#bk .bk-conf:not([hidden])",timeout=60000)
       info=await pg.inner_text('#bk .bk-note >> nth=-1');check(f'[{width}] Подготовка с итогом','Готово к созданию' in await pg.inner_text('#bk'),info)
-      await pg.locator('#bk .bk-job .st.ok').first.locator('xpath=..').locator('div').first.click();await pg.wait_for_timeout(300)
-      check(f'[{width}] Просмотр выписки из списка',await pg.locator('#bk .bk-pv .xsheet').count()==1)
+      await pg.locator('#bk .bk-job .st.ok').first.locator('xpath=..').locator('div').first.click()
+      await pg.wait_for_selector('.pv-ov .pv-page section.docx, .pv-ov .pv-page .xsheet',timeout=30000)
+      check(f'[{width}] Просмотр выписки из списка (12.79.12: отдельный экран просмотра)',await pg.locator('.pv-ov .pv-page section.docx, .pv-ov .pv-page .xsheet').count()==1)
+      await pg.click('.pv-ov .pv-x');await pg.wait_for_timeout(200)
       check(f'[{width}] Без подтверждения создать нельзя',await pg.locator("#bk button:has-text('Создать и скачать ZIP')").is_disabled())
       await pg.select_option('#bk .bk-card:nth-of-type(3) .bk-grid select','50')
       await pg.check('#bk .bk-conf input')

@@ -38,7 +38,7 @@ async def main():
     check('Халилов: отпуск найден, БВП — нет',R['Халилов Халим Шинабекович']==[['otp',['§ 6, п. 2']],['bvp',[]]],R.get('Халилов Халим Шинабекович'))
     check('Командировочный: командировка и отрыв',R['Командировочный Иван Петрович'][0][1]==['§ 6, п. 1'],R.get('Командировочный Иван Петрович'))
     await pg.click("#lq button:has-text('Создать выписки')");await pg.wait_for_selector('#bk .bk-job',timeout=20000)
-    jobs=await pg.evaluate("()=>[...document.querySelectorAll('#bk .bk-job')].map(x=>x.innerText.split('\\n')[0])")
+    jobs=await pg.evaluate("()=>[...document.querySelectorAll('#bk .bk-job')].map(x=>x.dataset.who||x.innerText.split('\\n')[0])")
     check('Массовое создание открыто с людьми из списка',len(jobs)==5 and sorted(set(jobs))==['Командировочный Иван Петрович','Образцов Максим Александрович','Тестов Владимир Евгеньевич','Халилов Халим Шинабекович'],jobs)
     check('Папки по людям выбраны',await pg.evaluate("()=>[...document.querySelectorAll('#bk select')].some(s=>s.value==='person')"))
     await pg.click("#bk button:has-text('Подготовить выписки')");await pg.wait_for_selector("#bk .bk-conf:not([hidden])",timeout=60000)

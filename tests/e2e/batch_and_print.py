@@ -39,8 +39,10 @@ async def main():
       ok=await pg.locator('#bk .st.ok').count();bad=await pg.locator('#bk .st.bad').count()
       check(f'[{width}] Есть готовые, проблемные — с кнопкой мастера',ok>=2 and await pg.locator("#bk .bk-job:has(.st.bad) button:has-text('Открыть в мастере')").count()==bad,(ok,bad))
       check(f'[{width}] Без подтверждения скачать нельзя',await pg.locator("#bk button:has-text('Создать и скачать ZIP')").is_disabled())
-      await pg.locator('#bk .bk-job .st.ok').first.locator('xpath=..').locator('div').first.click();await pg.wait_for_timeout(300)
-      check(f'[{width}] Просмотр выписки',await pg.locator('#bk .bk-pv .xsheet').count()>=1)
+      await pg.locator('#bk .bk-job .st.ok').first.locator('xpath=..').locator('div').first.click()
+      await pg.wait_for_selector('.pv-ov .pv-page section.docx, .pv-ov .pv-page .xsheet',timeout=30000)
+      check(f'[{width}] Просмотр выписки (12.79.12: страница как в Word, закрывается)',await pg.locator('.pv-ov .pv-page section.docx, .pv-ov .pv-page .xsheet').count()>=1)
+      await pg.click('.pv-ov .pv-x');await pg.wait_for_timeout(200)
       await pg.screenshot(path=f'{OUT}/batch-{width}.png')
       await pg.check('#bk .bk-conf input')
       async with pg.expect_download() as d:

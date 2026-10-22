@@ -45,7 +45,7 @@ async def main():
         await pg.locator("#content input >> visible=true").first.fill("Петров"); await pg.keyboard.press("Enter")
         await pg.wait_for_timeout(1500)
         await pg.screenshot(path=f"{out}/2-search-while-importing.png")
-        t=await pg.inner_text("#content");print("  search works during import:", "Результатов" in t or "Людей:" in t, await pg.evaluate(STATE))
+        t=await pg.inner_text("#content");print("  search works during import:", "Результатов" in t or "Людей:" in t or "Строк:" in t, await pg.evaluate(STATE))
 
         print("== 2. page hidden (another tab in front)")
         other = await ctx.new_page(); await other.goto("about:blank"); await other.bring_to_front()

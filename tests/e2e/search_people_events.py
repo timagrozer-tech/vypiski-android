@@ -55,7 +55,7 @@ async def main():
       await pg.click("#sx button:has-text('Все события в Excel')");await pg.wait_for_timeout(1500)
       check(f'[{width}] Переход в Excel с ФИО',await pg.locator('#rg').count()==1)
       # full text mode
-      await pg.evaluate("()=>VypiskiShell.go('search')");await pg.wait_for_selector('.sx-mode');await pg.click(".sx-mode button:has-text('Текст приказов')")
+      await pg.evaluate("()=>localStorage.setItem('vypiski.s3.off','1')");await pg.evaluate("()=>VypiskiShell.go('search')");await pg.wait_for_selector('.sx-mode');await pg.click(".sx-mode button:has-text('Текст приказов')")
       await pg.wait_for_selector('#dfs .df-q');await pg.wait_for_timeout(400)
       check(f'[{width}] Полнотекстовый режим с годами',await pg.locator('.sx-ym button:text-is("2024")').count()==1)
       await pg.click('.sx-ym button:text-is("2024")');await pg.wait_for_timeout(200);await pg.click('.sx-ym button[title=март]');await pg.wait_for_timeout(200)

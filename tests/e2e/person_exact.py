@@ -11,7 +11,7 @@ def check(n,ok,d=''):res.append(bool(ok));print(('PASS ' if ok else 'FAIL ')+n+(
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch();pg=await b.new_page(viewport={"width":1280,"height":900});errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
-    await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html");await login(pg)
+    await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html");await login(pg);await pg.evaluate("()=>localStorage.setItem('vypiski.s3.off','1')") # 12.79.12: the advanced (old) text search
     await pg.evaluate("()=>document.querySelector(`[data-sec='import']`).click()");await pg.wait_for_timeout(400)
     await pg.set_input_files("#wordFiles",[FX+'Приказ_158_2025.docx',FX+'Приказ_325_2025.docx']);await pg.wait_for_timeout(1500)
     await pg.evaluate("()=>[...document.querySelectorAll('#content button.primary')].find(x=>/Импорт/.test(x.textContent)).click()")
