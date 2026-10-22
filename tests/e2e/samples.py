@@ -1,7 +1,7 @@
-"""12.79: «Образец выписки» — a finished Word excerpt is matched to its order, compared word by word, its structure saved as a template, remade, batch-checked."""
+"""12.79: «Образец выписки» — a finished Word excerpt is matched to its order, compared word by word, a template is made from it automatically, remade, batch-checked."""
 import os, sys as _s, subprocess;_s.path.insert(0,os.path.dirname(os.path.abspath(__file__)));from authhelp import login
 FIX=os.environ.get("VYP_FIX","fixtures-out")
-import asyncio, sys, http.server, threading, functools
+import asyncio, sys, http.server, threading, functools, os, zipfile, re, shutil
 from playwright.async_api import async_playwright
 ROOT=sys.argv[1];FX=FIX+'/';SC='/tmp/vypiski-test-out/smpcases/';os.makedirs(SC,exist_ok=True)
 subprocess.run([sys.executable,os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','fixtures','samples','mksmp.py'),SC],check=True)
@@ -48,7 +48,8 @@ async def main():
     check('Распознаны заголовок и «ВЕРНО:»',P['title'][0]=='ВЫПИСКА' and P['cert'] and P['cert']['name']=='И.Петров' and P['cert']['rank']=='капитан' and P['cert']['lines']==['Начальник строевой части'],P)
     check('Оформление прочитано (12 пт, поля 30/15)','12 пт' in t and 'поля 20/15/20/30 мм' in t,t[t.find('Оформление'):][:200])
     check('Состав: §, вводная, пункт, основание',all(k in t for k in ['§','вводная часть','пункты','основание']),t[t.find('Взято'):][:120])
-    await pg.check('#smp .wz-check input');await pg.click("#smp button:has-text('Сохранить как шаблон')");await pg.wait_for_timeout(500)
+    check('Шаблон создан автоматически','Шаблон создан автоматически' in t,t[t.find('✓'):][:150])
+    await pg.check('#smp .wz-check input');await pg.wait_for_timeout(500)
     T=await pg.evaluate("async()=>{const d=await VypiskiCore.getState('defaultTemplate');const t=await VypiskiDocument.template(d.id);return {id:d.id,fs:t.fontSize,m:t.margins,h:t.header,title:t.title,s:t.structure,fl:t.firstLineMm}}")
     check('Шаблон сохранён и выбран по умолчанию',T['id'].startswith('sample:') and T['fs']==12 and T['m']['left']==30 and T['m']['right']==15 and abs(T['fl']-12.5)<0.2,T)
     check('В шаблоне подстановки шапки',T['h']==['из приказа {{заголовок_приказа}}','{{дата_прописью}} № {{номер}}','{{место}}'] and T['title']=='ВЫПИСКА',T['h'])
@@ -87,7 +88,9 @@ async def main():
     f=await d.value;pth=await f.path();csv=open(pth,encoding='utf-8-sig').read()
     check('CSV отчёт',csv.count('\n')==4 and 'есть замечания' in csv and 'совпадает' in csv,csv[:300])
     await pg.evaluate("()=>VypiskiSamples.page()");await pg.wait_for_timeout(500)
-    check('Список шаблонов по образцам','Шаблоны, созданные по образцам' in await pg.inner_text('#smp'))
+    t=await pg.inner_text('#smp');check('Список шаблонов по образцам','Шаблоны по образцам' in t,t[-400:])
+    n=await pg.evaluate("async()=>(await VypiskiSamples.savedList()).length");S=await pg.evaluate("async()=>(await VypiskiSamples.savedList()).map(t=>t.structure.samples.length)")
+    check('Повторная загрузка того же образца не плодит шаблоны (5 разных структур)',n==5 and max(S)==1,[n,S])
     await pg.screenshot(path='/tmp/vypiski-test-out/samples.png',full_page=True)
     check('Без ошибок',not errs,errs);await b.close()
   print(f"{sum(res)}/{len(res)}")
