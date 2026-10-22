@@ -77,7 +77,7 @@ async def main():
     await pg.click("#wfNotes button:has-text('Отметить прочитанными')");await pg.wait_for_timeout(1500)
     badge=await pg.evaluate("()=>document.querySelector('header .wf-bell .n')?.textContent||''");check('После прочтения остаются только критичные',badge in ('','1','2','3'),badge)
     # palette & keys
-    await pg.click('body');await pg.keyboard.press('Control+k');await pg.wait_for_selector('#wfPal input');await pg.keyboard.type('журнал');await pg.keyboard.press('Enter');await pg.wait_for_timeout(400)
+    await pg.click('header h2');await pg.keyboard.press('Control+k');await pg.wait_for_selector('#wfPal input');await pg.keyboard.type('журнал');await pg.keyboard.press('Enter');await pg.wait_for_timeout(400)
     check('Ctrl+K → «Журнал выдачи»',await pg.inner_text('#content h2')=='Журнал выдачи выписок')
     await pg.keyboard.press('Control+k');await pg.keyboard.type('Елисеев');await pg.wait_for_timeout(300)
     pl=await pg.inner_text('#wfPal .l');check('Ctrl+K находит людей','Елисеев Роман Андреевич' in pl,pl[:120])

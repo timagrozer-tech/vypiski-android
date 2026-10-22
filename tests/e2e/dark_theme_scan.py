@@ -8,7 +8,7 @@ root=sys.argv[1]; files=sorted(glob.glob(f"{FIX}/orders/*.docx"))
 h=functools.partial(http.server.SimpleHTTPRequestHandler, directory=root); h.log_message=lambda *a:None
 srv=http.server.ThreadingHTTPServer(("127.0.0.1",0),h); threading.Thread(target=srv.serve_forever,daemon=True).start()
 SCAN="""()=>{const lum=c=>{const m=c.match(/[\\d.]+/g);if(!m)return null;const [r,g,b,a=1]=m.map(Number);if(a<0.5)return null;const f=x=>{x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)};return .2126*f(r)+.7152*f(g)+.0722*f(b)};
-const skip=e=>e.closest('.word-preview,.doc-preview,.wz-paper,.wz-preview,iframe,.sheet,.xsheet,.u2-doc,mark')||(e.tagName==='BUTTON'&&/primary|wz-next/.test(e.className))||(e.tagName==='INPUT'&&/checkbox|radio/.test(e.type));const res=[];
+const skip=e=>e.closest('.u3-tile.main,.word-preview,.doc-preview,.wz-paper,.wz-preview,iframe,.sheet,.xsheet,.u2-doc,mark')||(e.tagName==='BUTTON'&&/primary|wz-next/.test(e.className))||(e.tagName==='INPUT'&&/checkbox|radio/.test(e.type));const res=[];
 for(const e of document.querySelectorAll('#content *, #appNav *, #appMore *, #dfp *, header *')){if(skip(e))continue;const r=e.getBoundingClientRect();if(!r.width||!r.height)continue;const cs=getComputedStyle(e);if(cs.visibility==='hidden'||cs.display==='none')continue;
  const bg=lum(cs.backgroundColor);const txt=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())||['INPUT','SELECT','TEXTAREA'].includes(e.tagName);
  const name=e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(e.className&&typeof e.className==='string'?'.'+e.className.trim().split(/\\s+/).join('.'):'');
