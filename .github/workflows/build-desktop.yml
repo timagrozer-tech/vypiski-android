@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # only to attach the installer to an existing release v<version>
 
 jobs:
   windows:
@@ -56,3 +56,13 @@ jobs:
             desktop/dist/Vypiski-Portable-*.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Attach to release (only if release v<version> exists)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./desktop/package.json').version")
+          if gh release view "v$V" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "v$V" desktop/dist/Vypiski-Setup-*.exe desktop/dist/Vypiski-Portable-*.exe --clobber --repo "${{ github.repository }}"
+          else echo "no release v$V — skipped"; fi

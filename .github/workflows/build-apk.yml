@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # only to attach the APK to an existing release v<version>
 
 jobs:
   build:
@@ -67,3 +67,14 @@ jobs:
           path: android-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Attach to release (only if release v<version> exists)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(grep -oP "versionName\s+'\K[^']+" android-project/app/build.gradle)
+          if gh release view "v$V" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            cp android-project/app/build/outputs/apk/debug/app-debug.apk "Vypiski-$V.apk"
+            gh release upload "v$V" "Vypiski-$V.apk" --clobber --repo "${{ github.repository }}"
+          else echo "no release v$V — skipped"; fi
