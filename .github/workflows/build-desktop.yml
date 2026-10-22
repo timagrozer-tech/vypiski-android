@@ -44,17 +44,46 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --win nsis portable --x64 --publish never
 
-      - name: List output
+      - name: Checksums and a silent install check
         shell: pwsh
-        run: Get-ChildItem desktop/dist -Filter *.exe | Format-Table Name, Length
+        run: |
+          $out = Get-ChildItem desktop/dist -Filter *.exe
+          $out | Format-Table Name, Length
+          $sums = foreach ($f in $out) { "{0}  {1}" -f (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower(), $f.Name }
+          $sums | Set-Content -Encoding ascii desktop/dist/SHA256.txt
+          $sums
+          # the installer must install silently and leave Vypiski.exe; then it is removed again
+          $setup = ($out | Where-Object Name -like 'Vypiski-Setup-*').FullName
+          $p = Start-Process $setup -ArgumentList '/S' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          Start-Sleep -Seconds 5
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs","$env:ProgramFiles","${env:ProgramFiles(x86)}" -Recurse -Filter 'Vypiski.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw 'installed program not found' }
+          Write-Host "Installed: $($exe.FullName) $($exe.Length)"
+          $un = Get-ChildItem $exe.DirectoryName -Filter 'Uninstall*.exe' | Select-Object -First 1
+          if ($un) { Start-Process $un.FullName -ArgumentList '/S' -Wait }
 
-      - name: Upload
+      # two downloads instead of one 180 MB archive; stored without compression (the .exe files are compressed already) —
+      # a smaller download that breaks less often and unpacks with any archiver
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: Vypiski-Windows
+          name: Vypiski-Windows-Setup
           path: |
             desktop/dist/Vypiski-Setup-*.exe
+            desktop/dist/SHA256.txt
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vypiski-Windows-Portable
+          path: |
             desktop/dist/Vypiski-Portable-*.exe
+            desktop/dist/SHA256.txt
+          compression-level: 0
           if-no-files-found: error
           retention-days: 30
 
@@ -67,3 +96,23 @@ jobs:
           if gh release view "v$V" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "v$V" desktop/dist/Vypiski-Setup-*.exe desktop/dist/Vypiski-Portable-*.exe --clobber --repo "${{ github.repository }}"
           else echo "no release v$V — skipped"; fi
+
+  # the archives are downloaded back and checked: they open and the files match the checksums
+  verify:
+    needs: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: got
+      - name: Check
+        shell: pwsh
+        run: |
+          foreach ($d in Get-ChildItem got -Directory) {
+            $sums = Get-Content (Join-Path $d.FullName 'SHA256.txt')
+            foreach ($f in Get-ChildItem $d.FullName -Filter *.exe) {
+              $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+              if (-not ($sums -match "^$h  $([regex]::Escape($f.Name))$")) { throw "checksum mismatch: $($f.Name)" }
+              Write-Host "OK $($d.Name)/$($f.Name) $($f.Length)"
+            }
+          }
