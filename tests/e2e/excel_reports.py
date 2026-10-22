@@ -28,7 +28,7 @@ async def main():
                 if 'Разобрано' in await pg.inner_text('#rg .rg-status'):break
             if width==1366:
                 check('Пункт меню «Excel» и заголовок «Excel-аналитика»',await pg.inner_text('#appNav [data-sec=table]')=='Excel' and 'Excel-аналитика' in await pg.inner_text('#rg h2'))
-                await pg.click("#rg .rg-chip:has-text('Отпуска')");await pg.wait_for_timeout(500)
+                await pg.click("#rg .rg-group .rg-chip:has-text('Отпуск')");await pg.wait_for_timeout(500)
                 await pg.click("#rg .rg-chips button:has-text('2024')");await pg.wait_for_timeout(300);await pg.click("#rg .rg-chips button:has-text('2025')");await pg.wait_for_timeout(500)
                 title=await pg.input_value('#rg .rg-title');check('Заголовок как в образце',title=='Все приказы по отпускам с 2024 по 2025 г.',title)
                 rows=await pg.evaluate("()=>[...document.querySelectorAll('#rg tbody tr:not(.grp)')].map(tr=>[...tr.children].map(td=>td.innerText.trim()))")
@@ -85,8 +85,8 @@ async def main():
                 await pg.evaluate("()=>{const s=[...document.querySelectorAll('#rg select')].find(x=>[...x.options].some(o=>o.value==='fio'));s.value='';s.dispatchEvent(new Event('change'))}")
                 await pg.screenshot(path=f'{OUT}/desk-all.png')
             else:
-                await pg.click("#rg .rg-chip:has-text('Отпуска')");await pg.wait_for_timeout(600)
-                check('Телефон: пресет «Отпуска», карточки',await pg.locator('#rg .rg-card').count()>0 and await pg.locator('#rg .rg-tablewrap').is_hidden())
+                await pg.click("#rg .rg-group .rg-chip:has-text('Отпуск')");await pg.wait_for_timeout(600)
+                check('Телефон: вид «Отпуск», карточки',await pg.locator('#rg .rg-card').count()>0 and await pg.locator('#rg .rg-tablewrap').is_hidden())
                 await pg.screenshot(path=f'{OUT}/phone-check.png',full_page=False)
             check(f'Нет ошибок JavaScript ({width}px)',not errs,errs[:3])
             await ctx.close()

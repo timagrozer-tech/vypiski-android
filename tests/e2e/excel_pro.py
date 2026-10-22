@@ -26,7 +26,7 @@ async def main():
       before=await pg.evaluate("async()=>{const o=await VypiskiRepository.all('orders');return Object.fromEntries(o.map(x=>[x.id,x.textSha256+'|'+x.fileSha256]))}")
       await pg.evaluate("()=>VypiskiRegisterView.open()");await pg.wait_for_selector('#rg .xp-tabs')
       tabs=await pg.locator('#rg .xp-tabs button').all_inner_texts();check(f'[{width}] Вкладки Excel',tabs==['Отчёты','Импорт и сверка','Шаблоны'],tabs)
-      check(f'[{width}] Кнопки быстрых действий',await pg.locator("#rg .xp-quick button").all_inner_texts()==['Создать отчёт','Импортировать Excel','Сверить с приказами'])
+      check(f'[{width}] Нет кнопок, повторяющих вкладки',await pg.locator("#rg .xp-quick").count()==0)
       await pg.wait_for_function("()=>/Индекс обновлён: \\d/.test(document.querySelector('#rg .xp-stat')?.textContent||'')",timeout=20000)
       check(f'[{width}] Панель статуса',True,await pg.inner_text('#rg .xp-stat'))
       await pg.click("#rg .xp-tabs button:has-text('Импорт и сверка')")
