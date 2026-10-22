@@ -1,0 +1,63 @@
+"""12.79.7: «Выписки по списку» — a photo of a list «ФИО | что нужно» is read on the device (Tesseract, offline), the people are
+found, the requested events picked («отрыв» = the last movement, «все отпуска», «зачисление», «БВП», …), excerpts are made with a folder per person."""
+import os, sys as _s, subprocess;_s.path.insert(0,os.path.dirname(os.path.abspath(__file__)));from authhelp import login
+import asyncio, sys, http.server, threading, functools, zipfile
+from playwright.async_api import async_playwright
+ROOT=sys.argv[1];LC='/tmp/vypiski-test-out/leavecases/';LS='/tmp/vypiski-test-out/listcases/';PH=LS+'Список.jpg'
+_here=os.path.dirname(os.path.abspath(__file__))
+subprocess.run([sys.executable,os.path.join(_here,'..','fixtures','leave','mkleave.py'),LC],check=True)
+subprocess.run([sys.executable,os.path.join(_here,'..','fixtures','list','mklist.py'),LS],check=True)
+h=functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT); h.log_message=lambda *a:None
+srv=http.server.ThreadingHTTPServer(("127.0.0.1",0),h); threading.Thread(target=srv.serve_forever,daemon=True).start()
+res=[]
+def check(n,ok,d=''):res.append(bool(ok));print(('PASS ' if ok else 'FAIL ')+n+(' — '+str(d)[:400] if d else ''))
+async def main():
+  async with async_playwright() as p:
+    b=await p.chromium.launch();ctx=await b.new_context(viewport={"width":412,"height":915},accept_downloads=True);pg=await ctx.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
+    net=[];pg.on("request",lambda r:net.append(r.url) if not r.url.startswith(('http://127.0.0.1','blob:','data:')) else None)
+    await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html");await login(pg)
+    await pg.evaluate("()=>VypiskiShell.go('import')");await pg.wait_for_timeout(500)
+    await pg.set_input_files("#wordFiles",[LC+'Приказ 338 от 19.10.2026.docx']);await pg.wait_for_timeout(1500)
+    await pg.evaluate("()=>[...document.querySelectorAll('#content button.primary')].find(x=>/Импорт/.test(x.textContent)).click()")
+    while await pg.evaluate("()=>VypiskiImportJob.state().running"):await pg.wait_for_timeout(300)
+    await pg.evaluate("()=>VypiskiShell.go('home')");await pg.wait_for_timeout(500)
+    check('Плитка «Выписки по списку» на главной',await pg.locator(".u3-tile[data-u3='listreq']").count()==1)
+    await pg.click(".u3-tile[data-u3='listreq']");await pg.wait_for_selector('#lq')
+    await pg.set_input_files('#lq input[type=file]',PH)
+    await pg.wait_for_selector('#lq .lq-p',timeout=120000)
+    rows=await pg.evaluate("()=>VypiskiListReq.state().items.map(x=>[x.fio,x.need])")
+    want=[['Тестов Владимир Евгеньевич','Отрыв, все отпуска'],['Образцов Максим Александрович','Зачисление, отрыв'],['Халилов Халим Шинабекович','Все отпуска, БВП'],['Неизвестный Иван Иванович','Зачисление, отрыв'],['Командировочный Иван Петрович','Командировки, отрыв']]
+    check('Фото распознано на устройстве: 5 строк «ФИО | что нужно»',rows==want,rows)
+    check('Распознавание без сети',not net,net[:3])
+    await pg.click("#lq button:has-text('Найти людей и приказы')");await pg.wait_for_selector('#lq .lq-chip.ok',timeout=30000);await pg.wait_for_timeout(500)
+    t=await pg.inner_text('#lq')
+    check('Найдено 4 человека из 5, неизвестный — «не найден»','Найдено людей: 4 из 5' in t and 'В приказах не найден' in t,t[t.find('Найдено людей'):][:200])
+    R=await pg.evaluate("""()=>{const st=VypiskiListReq.state();const o={};for(const it of st.items){if(!it.res?.groups.length)continue;const g=it.res.groups[0];o[it.fio]=VypiskiListReq.parseNeeds(it.need).map(q=>[q.key,VypiskiListReq.pick(g.rows,q).map(r=>r.ref)])}return o}""")
+    check('Тестов: отрыв — последний приказ (§ 6, п. 1), все отпуска — оба пункта',R['Тестов Владимир Евгеньевич']==[['otryv',['§ 6, п. 1']],['otp',['§ 5, п. 1','§ 6, п. 1']]],R.get('Тестов Владимир Евгеньевич'))
+    check('Образцов: зачисление не найдено, отрыв — § 6, п. 3',R['Образцов Максим Александрович']==[['zach',[]],['otryv',['§ 6, п. 3']]],R.get('Образцов Максим Александрович'))
+    check('Халилов: отпуск найден, БВП — нет',R['Халилов Халим Шинабекович']==[['otp',['§ 6, п. 2']],['bvp',[]]],R.get('Халилов Халим Шинабекович'))
+    check('Командировочный: командировка и отрыв',R['Командировочный Иван Петрович'][0][1]==['§ 6, п. 1'],R.get('Командировочный Иван Петрович'))
+    await pg.click("#lq button:has-text('Создать выписки')");await pg.wait_for_selector('#bk .bk-job',timeout=20000)
+    jobs=await pg.evaluate("()=>[...document.querySelectorAll('#bk .bk-job')].map(x=>x.innerText.split('\\n')[0])")
+    check('Массовое создание открыто с людьми из списка',len(jobs)==5 and sorted(set(jobs))==['Командировочный Иван Петрович','Образцов Максим Александрович','Тестов Владимир Евгеньевич','Халилов Халим Шинабекович'],jobs)
+    check('Папки по людям выбраны',await pg.evaluate("()=>[...document.querySelectorAll('#bk select')].some(s=>s.value==='person')"))
+    await pg.click("#bk button:has-text('Подготовить выписки')");await pg.wait_for_selector("#bk .bk-conf:not([hidden])",timeout=60000)
+    await pg.check('#bk .bk-conf input')
+    async with pg.expect_download() as d: await pg.click("#bk button:has-text('Создать и скачать ZIP')")
+    dl=await d.value;z=zipfile.ZipFile(await dl.path());names=z.namelist()
+    dirs=sorted({n.split('/')[0] for n in names if '/' in n})
+    check('ZIP: папка на каждого человека',dirs==['Командировочный Иван Петрович','Образцов Максим Александрович','Тестов Владимир Евгеньевич','Халилов Халим Шинабекович'],dirs)
+    check('В названии архива — «Выписки по списку»','Выписки по списку' in dl.suggested_filename,dl.suggested_filename)
+    nf=z.read('_Что не найдено.txt').decode('utf-8-sig') if '_Что не найдено.txt' in names else ''
+    check('«_Что не найдено.txt»: неизвестный человек, зачисление Образцова, БВП Халилова','Неизвестный Иван Иванович: человек не найден' in nf and 'Образцов Максим Александрович: Зачисление' in nf and 'Халилов Халим Шинабекович: БВП' in nf,nf)
+    # typed list
+    await pg.evaluate("()=>VypiskiListReq.page()");await pg.wait_for_selector('#lq')
+    await pg.click("#lq button:has-text('Вставить текст')");await pg.fill('#lq textarea','1. Тестов Владимир Евгеньевич — крайнее убытие в отпуск\nХалилов Халим Шинабекович\tвсе отпуска до ноября 2026')
+    await pg.click("#lq button:has-text('Разобрать текст')")
+    rows=await pg.evaluate("()=>VypiskiListReq.state().items.map(x=>[x.fio,x.need])")
+    check('Список текстом',rows==[['Тестов Владимир Евгеньевич','крайнее убытие в отпуск'],['Халилов Халим Шинабекович','все отпуска до ноября 2026']],rows)
+    q=await pg.evaluate("()=>[VypiskiListReq.parseNeeds('крайнее убытие в отпуск'),VypiskiListReq.parseNeeds('убытие в СВО до марта 2026, периоды СОЧ, БВП, отрыв, что-то непонятное')]")
+    check('Разбор «что нужно»',q[0][0]['key']=='otp' and q[0][0].get('lastOnly') and [x['key'] for x in q[1]]==['svo','soch','bvp','otryv','?'] and q[1][0]['dir']=='в зону' and q[1][0]['before']=='2026-03-01',q)
+    check('Без ошибок',not errs,errs);await b.close()
+  print(f"{sum(res)}/{len(res)}")
+asyncio.run(main())

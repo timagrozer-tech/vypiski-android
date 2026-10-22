@@ -25,6 +25,7 @@ jobs:
           Expand-Archive -Path $zip.FullName -DestinationPath project -Force
           New-Item -ItemType Directory -Force -Path desktop/app | Out-Null
           Copy-Item project/app/src/main/assets/index.html desktop/app/index.html
+          if (Test-Path project/app/src/main/assets/ocr) { Copy-Item project/app/src/main/assets/ocr desktop/app/ocr -Recurse -Force }
           $ver = (Select-String -Path desktop/app/index.html -Pattern 'name="vypiski-version" content="([0-9.]+)"').Matches[0].Groups[1].Value
           Write-Host "Page version $ver"
           if ((Get-Item desktop/app/index.html).Length -lt 100000) { throw 'index.html looks wrong' }
