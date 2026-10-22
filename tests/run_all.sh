@@ -38,6 +38,8 @@ run "Нехватка места: понятное сообщение" python3 "
 run "Все кнопки всех экранов без ошибок (телефон)" python3 "$HERE/e2e/all_buttons.py" "$PAGE" 390
 run "Все кнопки всех экранов без ошибок (ПК)" python3 "$HERE/e2e/all_buttons.py" "$PAGE" 1366
 run "Быстрое переключение разделов без ошибок" python3 "$HERE/e2e/fast_switch.py" "$PAGE" 6
+run "Выписка за один экран, логотип" python3 "$HERE/e2e/fast_create.py" "$PAGE"
+run "Поиск: примеры, выписка из результата, карточка человека" python3 "$HERE/e2e/search_help.py" "$PAGE"
 run "Поиск именно этого человека"         python3 "$HERE/e2e/person_exact.py" "$PAGE"
 run "Нет фоновой нагрузки на экранах"     python3 "$HERE/e2e/idle_load.py" "$PAGE" "$WORK/profile"
 run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
