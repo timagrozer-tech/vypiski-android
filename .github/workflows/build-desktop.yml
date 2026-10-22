@@ -116,3 +116,15 @@ jobs:
               Write-Host "OK $($d.Name)/$($f.Name) $($f.Length)"
             }
           }
+      - name: Test the archives exactly as a browser downloads them (7-Zip)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ids = gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[] | "\(.id) \(.name)"'
+          foreach ($l in $ids) { $id,$name = $l -split ' ',2
+            gh api "repos/${{ github.repository }}/actions/artifacts/$id/zip" > "$name.zip"
+            Write-Host "== $name.zip $((Get-Item "$name.zip").Length) bytes"
+            & 7z l -slt "$name.zip" | Select-String '^(Path|Size|CRC|Method) '
+            & 7z t "$name.zip"; if ($LASTEXITCODE -ne 0) { Write-Host "::warning::7-Zip test failed for $name.zip" }
+          }
