@@ -50,6 +50,22 @@ async def main():
     check('Только пункт отпуска: без § 5 (прибытие)','§ 5' not in allt and 'Из отпуска' not in allt,allt[:200])
     other=[v for k,v in docs.items() if 'Образцов' in k][0];o=[t for _,t in paras(other) if t]
     check('Другая выписка: § 6, вводная, «I. В отпуск:», свой пункт 3, основание, подписи, ВЕРНО',o[5:9]==['§ 6','Полагать убывшими:','I. В отпуск:',o[8]] and o[8].startswith('3. Сержанта Образцова') and 'ВЕРНО:' in o and o[-1]=='С.Заверитель',o)
+    check('Два события одного человека: имена файлов различаются пунктом',any('Тестов' in k and '§' in k for k in docs),list(docs))
+    lst=z.read('_Список выписок.csv').decode('utf-8-sig').splitlines()
+    check('В архиве список выписок (CSV) с личными номерами и пунктами',len(lst)==5 and 'Личный номер' in lst[0] and any('СА-570942' in l and '§ 6, п. 1' in l for l in lst),lst[:3])
+    # direction filter + folders by order
+    await pg.evaluate("()=>VypiskiBatch.open()");await pg.wait_for_selector('#bk .bk-card')
+    await pg.evaluate("()=>{const d=document.querySelector('#bk details.bk-more-f');if(d)d.open=true}")
+    await pg.click("#bk button.bk-chip:text-is('убыл в отпуск')")
+    await pg.click("#bk button:has-text('Найти события')");await pg.wait_for_selector('#bk .bk-job',timeout=30000);await pg.wait_for_timeout(300)
+    jobs=await pg.evaluate("()=>[...document.querySelectorAll('#bk .bk-job')].map(x=>x.innerText)")
+    check('Фильтр «убыл в отпуск»: прибытие из отпуска (§ 5) не попадает',len(jobs)==3 and not any('§ 5' in j for j in jobs),jobs)
+    await pg.select_option('#bk select:near(:text("Папки в архиве"))','order')
+    await pg.click("#bk button:has-text('Подготовить выписки')");await pg.wait_for_selector("#bk .bk-conf:not([hidden])",timeout=60000)
+    await pg.check('#bk .bk-conf input')
+    async with pg.expect_download() as d: await pg.click("#bk button:has-text('Создать и скачать ZIP')")
+    z2=zipfile.ZipFile(await (await d.value).path());nm=[n for n in z2.namelist() if n.endswith('.docx')]
+    check('Папки по приказам',len(nm)==3 and all(n.startswith('Приказ № 338 ДСП от 19.10.2026/') for n in nm),nm)
     check('Без ошибок',not errs,errs);await b.close()
   print(f"{sum(res)}/{len(res)}")
 asyncio.run(main())
