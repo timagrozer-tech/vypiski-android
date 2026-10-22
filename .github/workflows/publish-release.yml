@@ -1,0 +1,51 @@
+name: Publish release from builds
+
+# Manual only: takes the APK and the Windows installer from two finished build runs
+# and publishes them as a GitHub release (direct download without signing in).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, e.g. 12.79.3'
+        required: true
+      apk_run:
+        description: 'Run id of "Build Vypiski APK"'
+        required: true
+      exe_run:
+        description: 'Run id of "Build Vypiski for Windows"'
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.apk_run }}
+          github-token: ${{ github.token }}
+          path: out/apk
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.exe_run }}
+          github-token: ${{ github.token }}
+          path: out/exe
+      - name: Collect files
+        run: |
+          mkdir -p files
+          find out/apk -name '*.apk' -exec cp {} "files/Vypiski-${{ inputs.version }}.apk" \;
+          find out/exe -name '*.exe' -exec cp {} files/ \;
+          ls -la files
+          test -n "$(ls files/*.apk)" && test -n "$(ls files/*.exe)"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" files/* \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "Выписки ${{ inputs.version }}" \
+            --notes "Android: файл .apk. Windows: файл Vypiski-Setup-….exe. Изменения — docs/REPORT_V7_1.md."
