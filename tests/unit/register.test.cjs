@@ -123,4 +123,9 @@ eq('treatment, trip, missing',x8.map(r=>[r.fio,r.category,r.detail,r.why]),[['Б
 // 12.79.5: a person in brackets is mentioned, not the subject of the point
 const x9=R.extract({paragraphs:['ПРИКАЗ','§ 6','Полагать убывшими:','II. В командировку:','2. Младшего сержанта Возилова Дениса Николаевича, Ф-647988, номера расчета, в г. Ростов-на-Дону для перевозки тела погибшего военнослужащего (рядовой Павшин Василий Николаевич) сроком на 15 суток с 17 октября по 31 октября 2026 года.'].map(text=>({kind:'p',text}))});
 eq('mentioned in brackets',x9.map(r=>[r.fio,r.mention,r.check]),[['ВОЗИЛОВ Д.Н.',false,false],['ПАВШИН В.Н.',true,true]]);
+// 12.79.11: petrovich checks the nominative of first names; case forms for the search
+const FN=l=>R.personsIn(l).map(p=>p.full);
+eq('indeclinable and fleeting-vowel names',[FN('рядовому Карабасову Абу Халиевичу'),FN('младшему сержанту Петрову Льву Ильичу'),FN('рядовой Сидоровой Любови Ивановне'),FN('сержанта Ильина Илью Сергеевича'),FN('рядовым Петровым Ильей Ильичом'),FN('рядовому Сидорову Никите Ивановичу')],
+ [['Карабасов Абу Халиевич'],['Петров Лев Ильич'],['Сидорова Любовь Ивановна'],['Ильин Илья Сергеевич'],['Петров Илья Ильич'],['Сидоров Никита Иванович']]);
+eq('case forms',R.caseForms('Шевченко Павел Олегович').slice(0,2),['Шевченко Павла Олеговича','Шевченко Павлу Олеговичу']);
 console.log(`ok=${ok} fail=${fail}`);process.exit(fail?1:0);
