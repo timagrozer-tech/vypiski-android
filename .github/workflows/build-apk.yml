@@ -58,6 +58,8 @@ jobs:
           set -euo pipefail
           APK=android-project/app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$APK" | grep -q 'assets/index.html'
+          unzip -l "$APK" | grep 'assets/ocr/' || true
+          if [ -f android-project/app/src/main/assets/ocr/rus.traineddata.bin ]; then unzip -l "$APK" | grep -q 'assets/ocr/rus.traineddata.bin'; unzip -l "$APK" | grep -q 'assets/ocr/tesseract-core-simd-lstm.wasm.js'; fi
           ls -la "$APK"
 
       - name: Upload APK
