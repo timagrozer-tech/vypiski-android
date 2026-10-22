@@ -14,6 +14,7 @@ async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch();ctx=await b.new_context(viewport={"width":W,"height":844},accept_downloads=True,has_touch=W<900);pg=await ctx.new_page()
     errs=[];cur={'s':'','b':''}
+    await pg.add_init_script("addEventListener('unhandledrejection',e=>console.error('UNHANDLED REJECTION: '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason)))")
     pg.on("pageerror",lambda e:errs.append(f"[{cur['s']} / {cur['b']}] pageerror: {str(e)[:300]}"))
     pg.on("console",lambda m:errs.append(f"[{cur['s']} / {cur['b']}] console.error: {m.text[:300]}") if m.type=='error' else None)
     pg.on("dialog",lambda d:asyncio.ensure_future(d.dismiss()))
