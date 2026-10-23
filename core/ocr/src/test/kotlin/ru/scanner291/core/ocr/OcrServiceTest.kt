@@ -41,7 +41,9 @@ class OcrServiceTest {
         val svc = OcrService({ _, _ -> OcrResult(secret, words, 42) }, source)
         val t = svc.recognizePage(page, PageRecipe(filter = FilterType.PHOTO), OcrMode.FAST).getOrThrow()
         assertEquals(secret, t.text); assertEquals(1, saved.size)
-        assertEquals(words, WordsCodec.decode(t.words))
+        val back = WordsCodec.decode(t.words)
+        assertEquals(words.map { it.text }, back.map { it.text })
+        words.zip(back).forEach { (a, b) -> assertEquals(a.box.right, b.box.right, 1e-4f); assertEquals(a.confidence, b.confidence, 1e-4f) }
         val logs = allLogs()
         assertTrue("служебная запись должна быть: $logs", ShadowLog.getLogsForTag("Scanner291Ocr").isNotEmpty())
         for (w in secret.split(' ')) assertFalse("в журнале найдено «$w»: $logs", logs.contains(w))

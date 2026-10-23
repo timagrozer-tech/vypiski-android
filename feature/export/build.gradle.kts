@@ -5,3 +5,7 @@ plugins {
 android {
     namespace = "ru.scanner291.feature.export"
 }
+dependencies {
+    implementation(project(":core:pdf"))
+    implementation(libs.androidx.documentfile)
+}
