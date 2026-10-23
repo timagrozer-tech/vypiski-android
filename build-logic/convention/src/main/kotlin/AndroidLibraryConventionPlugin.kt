@@ -19,6 +19,14 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             defaultConfig.consumerProguardFiles("consumer-rules.pro")
             testOptions.animationsDisabled = true
         }
+        // Полный текст ошибок тестов в логе — CI выносит его в аннотации.
+        tasks.withType(org.gradle.api.tasks.testing.Test::class.java).configureEach {
+            testLogging {
+                events("failed")
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                showStackTraces = true
+            }
+        }
         dependencies {
             "testImplementation"(libs.findLibrary("junit").get())
             "testImplementation"(libs.findLibrary("kotlin-test").get())

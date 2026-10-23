@@ -13,7 +13,8 @@ if [ "$rc" -ne 0 ]; then
   grep -E '^e: |error: |AAPT: error|Could not resolve|Could not find|Unresolved reference|Lint found' "$LOG" | sort -u | head -40 | head -c 6000 | { msg=$(enc); [ -n "$msg" ] && echo "::error title=Compiler/resolve errors::$msg"; }
   # 3) Причины исключения
   grep -E '^Caused by: ' "$LOG" | sort -u | head -15 | head -c 4000 | { msg=$(enc); [ -n "$msg" ] && echo "::error title=Caused by::$msg"; }
-  # 4) Упавшие тесты
+  # 4) Упавшие тесты — с текстом ошибки (несколько строк после «FAILED»)
   grep -E 'FAILED$|> .* FAILED' "$LOG" | head -30 | { msg=$(enc); [ -n "$msg" ] && echo "::error title=Failed tests::$msg"; }
+  grep -A10 -E '^[A-Za-z0-9_.]+Test > .* FAILED$' "$LOG" | grep -vE '^\s+at (org\.junit|java\.|jdk\.|org\.gradle|kotlin\.coroutines|kotlinx\.coroutines\.test)' | head -60 | head -c 6000 | { msg=$(enc); [ -n "$msg" ] && echo "::error title=Test failures (details)::$msg"; }
 fi
 exit "$rc"
