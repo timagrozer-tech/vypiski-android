@@ -8,7 +8,7 @@ timeout 1800 tools/ci/gradle.sh connectedDebugAndroidTest -Pandroid.injected.and
 rc=$?
 [ "$rc" = "124" ] && echo "::error title=Эмулятор::тесты не уложились в 30 минут (зависание)"
 echo "gradle rc=$rc"
-logs=$(adb logcat -d 2>/dev/null | grep 'DetectorAccuracy' | sed 's/^.*DetectorAccuracy[^:]*: //' | tr -d '\r' | tail -3 | tr '\n' ' ')
+logs=$(adb logcat -d -v brief -s DetectorAccuracy:I 2>/dev/null | grep '^I/DetectorAccuracy' | sed 's/^I\/DetectorAccuracy([^)]*): //' | tr -d '\r' | tail -1)
 echo "logcat: $logs"
 if [ -n "$logs" ]; then echo "::notice title=Точность поиска документа (эмулятор, синтетический набор)::$logs"; else echo "::notice title=Отчёт детектора::в logcat нет строк DetectorAccuracy"; fi
 files=$(find . -path '*androidTest-results*' -name '*.xml' 2>/dev/null | tr '\n' ' ')

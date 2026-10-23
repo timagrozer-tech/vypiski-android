@@ -51,10 +51,12 @@ class DetectorAccuracyTest {
         }
         val falsePositives = negatives.count { BitmapDetection.detectNormalized(it.bitmap) != null }
         val good = ious.count { it.second >= 0.9 }
-        val byKind = ious.groupBy({ it.first }, { it.second }).mapValues { (_, v) -> "%d/%d".format(v.count { it >= 0.9 }, v.size) }
+        val byKind = ious.groupBy({ it.first }, { it.second }).mapValues { (_, v) -> "${v.count { it >= 0.9 }}/${v.size}" }
         val mean = ious.map { it.second }.average()
         val report = buildString {
-            append("Синтетический набор: ${ious.size} документов, IoU≥0.9: $good (${100 * good / ious.size}%), средний IoU %.3f; ".format(mean))
+            // Без String.format: «%)» в тексте был бы принят за спецификатор формата.
+            val meanText = String.format(java.util.Locale.ROOT, "%.3f", mean)
+            append("Синтетический набор: ${ious.size} документов, IoU≥0.9: $good (${100 * good / ious.size} %), средний IoU $meanText; ")
             append("по типам: $byKind; ложные срабатывания на ${negatives.size} кадрах без документа: $falsePositives")
         }
         writeReport(report)
