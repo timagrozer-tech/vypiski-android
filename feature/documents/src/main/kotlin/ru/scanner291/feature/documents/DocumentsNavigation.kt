@@ -12,7 +12,8 @@ fun NavGraphBuilder.documentsScreens(
     onProcess: (docId: String, pageIndex: Int) -> Unit,
     onBack: () -> Unit,
     onText: (docId: String) -> Unit = {},
+    onExport: (docId: String) -> Unit = {},
 ) {
     composable<DocumentsRoute> { DocumentsRouteScreen(onOpenDocument) }
-    composable<ViewerRoute> { ViewerRouteScreen(onProcess, onBack, onText) }
+    composable<ViewerRoute> { ViewerRouteScreen(onProcess, onBack, onText, onExport) }
 }

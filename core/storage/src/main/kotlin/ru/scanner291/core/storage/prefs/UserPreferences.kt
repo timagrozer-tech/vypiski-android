@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import ru.scanner291.core.common.watermark.WatermarkSettings
 import java.io.IOException
@@ -43,6 +44,8 @@ internal object PrefKeys {
     val WM_MARGIN_MM = floatPreferencesKey("wm_margin_mm")
     /** Строки Preset.encodeUser(), по одной на строку. */
     val USER_PRESETS = stringPreferencesKey("user_presets")
+    /** SHA-256 файлов, созданных экспортом с водяным знаком (защита от повторного нанесения при обратном импорте). */
+    val EXPORTED = androidx.datastore.preferences.core.stringSetPreferencesKey("exported_sha256")
 }
 
 /** Чтение с значениями по умолчанию; повреждённое/неизвестное значение темы → тёмная. Покрыто тестом. */
@@ -89,6 +92,14 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun saveUserPreset(p: ru.scanner291.core.common.filters.Preset) = dataStore.edit { prefs ->
         val list = prefs.toUserPreferences().userPresets.filter { it.id != p.id } + p
         prefs[PrefKeys.USER_PRESETS] = list.takeLast(50).joinToString("\n") { it.encodeUser().replace('\n', ' ') }
+    }
+
+    /** Реестр экспортированных файлов (WatermarkLedger): последние 5000 сумм. */
+    suspend fun exportedHashes(): Set<String> = dataStore.data.catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
+        .map { it[PrefKeys.EXPORTED].orEmpty() }.first()
+
+    suspend fun markExported(hashes: Collection<String>) = dataStore.edit { p ->
+        p[PrefKeys.EXPORTED] = (p[PrefKeys.EXPORTED].orEmpty() + hashes).toList().takeLast(5000).toSet()
     }
 
     /** Удалить «мой» пресет (по явному действию пользователя). */

@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material3.Icon
@@ -45,9 +46,9 @@ import ru.scanner291.designsystem.Space
 import ru.scanner291.designsystem.Type
 
 @Composable
-internal fun ViewerRouteScreen(onProcess: (String, Int) -> Unit, onBack: () -> Unit, onText: (String) -> Unit, vm: ViewerViewModel = hiltViewModel()) {
+internal fun ViewerRouteScreen(onProcess: (String, Int) -> Unit, onBack: () -> Unit, onText: (String) -> Unit, onExport: (String) -> Unit, vm: ViewerViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    ViewerScreen(state, vm::image, { i -> onProcess(vm.docId, i) }, onBack, onText = { onText(vm.docId) })
+    ViewerScreen(state, vm::image, { i -> onProcess(vm.docId, i) }, onBack, onText = { onText(vm.docId) }, onExport = { onExport(vm.docId) })
 }
 
 /** Просмотр документа: страницы-оригиналы сверху вниз (уменьшенные для экрана, файл не меняется). */
@@ -59,6 +60,7 @@ fun ViewerScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onText: () -> Unit = {},
+    onExport: () -> Unit = {},
 ) {
     Column(modifier.fillMaxSize()) {
         when (state) {
@@ -70,6 +72,9 @@ fun ViewerScreen(
             is ViewerState.Ready -> {
                 val pages = state.doc.orderedPages
                 ScanTopBar(title = state.doc.doc.title, onBack = onBack) {
+                    IconButton(onClick = onExport) {
+                        Icon(Icons.Rounded.IosShare, contentDescription = "Экспорт", tint = ScannerTheme.colors.accentText)
+                    }
                     IconButton(onClick = onText) {
                         Icon(Icons.Rounded.DocumentScanner, contentDescription = "Распознанный текст", tint = ScannerTheme.colors.accentText)
                     }

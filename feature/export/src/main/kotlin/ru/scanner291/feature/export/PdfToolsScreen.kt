@@ -86,7 +86,7 @@ val PdfTools = listOf(
     PdfTool(ToolKind.EXTRACT, Icons.Rounded.FileUpload, "Извлечь и переставить", "Выбранные страницы в новом порядке"),
     PdfTool(ToolKind.INSERT, Icons.Rounded.NoteAdd, "Добавить", "Страницы другого PDF в нужное место"),
     PdfTool(ToolKind.PROTECT, Icons.Rounded.Lock, "Защитить", "Пароль — этап 18 (безопасность)", ready = false),
-    PdfTool(ToolKind.EXPORT, Icons.Rounded.IosShare, "Экспорт", "PDF, JPG, PNG, TXT — этап 17", ready = false),
+    PdfTool(ToolKind.EXPORT, Icons.Rounded.IosShare, "Экспорт", "Откройте документ → кнопка «Экспорт»", ready = false),
 )
 
 /**

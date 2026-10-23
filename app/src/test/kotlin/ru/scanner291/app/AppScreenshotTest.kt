@@ -209,6 +209,7 @@ class AppScreenshotTest {
         go(EditorRoute(id)); shot("12-editor"); back()
         go(OcrRoute(id)); shot("13-ocr"); back()
         go(FioRoute(id)); shot("14-fio"); back()
+        go(ru.scanner291.feature.export.ExportRoute(id)); shot("14b-export", "Формат"); back()
         go(HomeRoute)
         theme = ThemeMode.LIGHT
         shot("15-home-light", "Справка Иванов")

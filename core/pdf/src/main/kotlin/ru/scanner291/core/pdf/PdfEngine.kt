@@ -56,13 +56,22 @@ class PdfEngine(private val context: Context) {
     }
 
     /** Новый PDF из изображений страниц с текстовым слоем (кириллица — шрифт Liberation Sans, встраивается). */
-    fun create(pages: List<PdfPageInput>, out: File, title: String? = null) {
-        require(pages.isNotEmpty()) { "Нет страниц" }
-        PDDocument().use { doc ->
+    fun create(pages: List<PdfPageInput>, out: File, title: String? = null) = create(pages.size, out, title) { pages[it] }
+
+    /**
+     * Потоковое создание: страницы готовятся по одной ([page]) и сразу сжимаются в документ — в памяти
+     * одна страница, а не весь документ (большие документы, ТЗ). Буфер PDFBox — во временных файлах.
+     */
+    fun create(count: Int, out: File, title: String? = null, watermarked: Boolean = false, page: (Int) -> PdfPageInput) {
+        require(count > 0) { "Нет страниц" }
+        PDDocument(MemoryUsageSetting.setupTempFileOnly()).use { doc ->
             title?.let { doc.documentInformation.title = it }
             doc.documentInformation.producer = "291 Сканер"
+            // Метка для защиты от повторного водяного знака при обратном импорте этого файла
+            if (watermarked) doc.documentInformation.setCustomMetadataValue(WATERMARK_KEY, "1")
             val f by lazy { font(doc) }
-            for (p in pages) {
+            for (i in 0 until count) {
+                val p = page(i)
                 val w = p.bitmap.width * 72f / p.dpi; val h = p.bitmap.height * 72f / p.dpi
                 val page = PDPage(PDRectangle(w, h)); doc.addPage(page)
                 val img = if (p.jpegQuality == null) LosslessFactory.createFromImage(doc, p.bitmap)
@@ -71,6 +80,7 @@ class PdfEngine(private val context: Context) {
                     cs.drawImage(img, 0f, 0f, w, h)
                     if (p.words.isNotEmpty()) textLayer(cs, f, p.words, w, h)
                 }
+                if (!p.bitmap.isRecycled) p.bitmap.recycle()
             }
             save(doc, out)
         }
@@ -100,6 +110,11 @@ class PdfEngine(private val context: Context) {
         }
         cs.endText()
     }
+
+    /** Был ли PDF создан экспортом с водяным знаком (метка в метаданных). */
+    fun isWatermarkedExport(f: File): Boolean = runCatching { open(f).use { it.documentInformation.getCustomMetadataValue(WATERMARK_KEY) == "1" } }.getOrDefault(false)
+
+    companion object { const val WATERMARK_KEY = "Scanner291Watermark" }
 
     fun pageCount(f: File): Int = open(f).use { it.numberOfPages }
 

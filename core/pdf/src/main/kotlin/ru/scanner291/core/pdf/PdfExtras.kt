@@ -28,6 +28,18 @@ import java.io.FileOutputStream
  * Подпись — PNG из защищённого хранилища ([signatureFile] по id).
  */
 object AnnotationRenderer {
+    /**
+     * Закрашивание (настоящее удаление): пиксели областей заменяются чёрным на копии страницы;
+     * слова OCR из этих областей убираются отдельно (Redaction.filterWords) — их нет и в текстовом слое.
+     */
+    fun redact(src: Bitmap, rects: List<ru.scanner291.core.common.model.NRect>): Bitmap {
+        if (rects.isEmpty()) return src
+        val out = src.copy(Bitmap.Config.ARGB_8888, true)
+        val c = Canvas(out); val p = Paint().apply { color = Color.BLACK }
+        for (r in rects.map { it.normalized() }) c.drawRect(r.left * out.width, r.top * out.height, r.right * out.width, r.bottom * out.height, p)
+        return out
+    }
+
     fun render(src: Bitmap, annotations: List<Annotation>, signatureFile: (String) -> File?): Bitmap {
         if (annotations.isEmpty()) return src
         val out = src.copy(Bitmap.Config.ARGB_8888, true)
