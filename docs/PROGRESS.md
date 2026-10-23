@@ -2,6 +2,31 @@
 
 Читать первым в каждой новой сессии. Последняя запись — сверху.
 
+## 2026-10-23 — Этап 3 (дизайн-система) завершён
+
+Источник — артефакт дизайн-системы пользователя (tokens.json, README, 22 карточки компонентов;
+собран по макетам «Full Upgrade v1.4 — 13 экранов»). Копия tokens.json — в
+`core/designsystem/src/test/resources/design-system/`, код сверяется с ней тестом.
+
+**Сделано:** тема (стекло решается один раз; энергосбережение отслеживается на лету; Dynamic Color —
+по выбору); 21 компонент: GlassSurface/GlassCard, ScanButton ×5, ScanHero, ScanBottomNav, ScanTopBar,
+QuickAction, ToolTile, DocumentRow, FolderRow, SettingsRow, ToggleRow, FioToggle, SliderRow, ScanChip,
+ScanSegmented, ScanTextField, StatusLine, FioCard, PageThumb, AddPageCell, FilterStrip.
+CameraControls, OcrText, BatchItem, WatermarkPreview — на этапах 5, 10, 15, 13 (им нужны реальные данные).
+`core:common`: склонение и даты + тесты (73/73 JVM локально).
+
+**CI** 39956840643 — зелёный. По пути: неверный импорт в тесте; порог контраста в моём тесте был
+произвольным (15:1), тёмная тема даёт 14,9:1 — заменён на WCAG AAA 7:1.
+
+**Находка в палитре (не исправлялась, чтобы не расходиться с дизайн-системой):** в светлой теме
+плейсхолдер `text-secondary` на `field` — 4,3:1, на `bg` — 4,4:1, ниже AA 4,5:1 для текста 16 sp.
+Зафиксировано тестом `knownLightThemeLimitations`. Варианты: затемнить `text-secondary` светлой темы
+до ~#5b6b80 или плейсхолдер — `text` с прозрачностью; решение за пользователем.
+
+**Размытие подложки** — ADR-0018: на этапе 4 для панелей над прокручиваемым содержимым.
+
+**Следующий шаг — этап 4:** 13 экранов и навигация.
+
 ## 2026-10-23 — Этап 2 (архитектура и Gradle)
 
 **Шаг A** (`d42cd92`, CI 39951169906 — сборка зелёная): `build-logic` с convention-плагинами
