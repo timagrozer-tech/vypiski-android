@@ -2,9 +2,4 @@
 <resources>
     <string name="app_name">291 Сканер</string>
     <string name="app_tagline">Офлайн-сканер документов</string>
-    <string name="offline_badge">Работает без интернета</string>
-    <string name="build_stage_title">Каркас приложения</string>
-    <string name="build_stage_body">Архитектура и модули готовы. Сканирование, OCR и экспорт появятся на следующих этапах — до этого кнопок для них здесь нет.</string>
-    <string name="recovered_ops">Восстановлено незавершённых операций: %1$d</string>
-    <string name="version_label">Версия %1$s</string>
 </resources>

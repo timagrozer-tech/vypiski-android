@@ -15,7 +15,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
@@ -46,11 +49,26 @@ fun QuickAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier:
     }
 }
 
-/** Плитка PDF-инструмента: стекло, различие — только иконкой; описание до двух строк. */
+/**
+ * Плитка PDF-инструмента: стекло, различие — только иконкой; описание до двух строк.
+ * Недоступная (`enabled = false`) не нажимается вовсе и помечена для доступности как disabled.
+ */
 @Composable
-fun ToolTile(icon: ImageVector, title: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ToolTile(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
     val c = ScannerTheme.colors
-    GlassSurface(modifier = modifier.heightIn(min = 120.dp), shape = RoundedCornerShape(Radius.md), onClick = onClick) {
+    GlassSurface(
+        modifier = modifier.heightIn(min = 120.dp)
+            .then(if (enabled) Modifier else Modifier.alpha(OPACITY_DISABLED).semantics { disabled() }),
+        shape = RoundedCornerShape(Radius.md),
+        onClick = if (enabled) onClick else null,
+    ) {
         Column(Modifier.fillMaxWidth().padding(Space.s4)) {
             TileIcon(icon)
             Spacer(Modifier.height(Space.s3))

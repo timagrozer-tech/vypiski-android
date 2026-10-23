@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Только debug: пустая Activity с Hilt для UI-тестов навигации. В release не попадает. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name="ru.scanner291.app.HiltTestActivity" android:exported="false" />
+    </application>
+</manifest>

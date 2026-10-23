@@ -59,4 +59,15 @@ class RulesTest {
         assertEquals(10, stepIndex(1f, 0f..1f, 9))
         assertEquals(2, stepIndex(0.2f, 0f..1f, 9))
     }
+
+    @Test fun samplePagesExerciseRealPlanner() {
+        val fake = ru.scanner291.core.common.watermark.TextMeasurer { px -> (px * 0.55f * 9) to (px * 1.2f) }
+        val regular = planSample(SamplePages.regular, ru.scanner291.core.common.watermark.WatermarkSettings.DEFAULT, fake)
+        assertEquals(ru.scanner291.core.common.watermark.PlacementKind.FREE_SPACE, regular.kind)
+        assertFalse(regular.pageSizeChanged)
+        val dense = planSample(SamplePages.dense, ru.scanner291.core.common.watermark.WatermarkSettings.DEFAULT, fake)
+        assertEquals(ru.scanner291.core.common.watermark.PlacementKind.PAGE_EXTENDED, dense.kind)
+        assertTrue(dense.pageSizeChanged)
+        assertEquals(Status.WARNING, placementStatus(dense).first)
+    }
 }

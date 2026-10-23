@@ -10,7 +10,7 @@ android {
 dependencies {
     api(project(":core:common"))
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.datastore.preferences)
+    api(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
     testImplementation(project(":core:testing"))
 }
