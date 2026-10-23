@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.scanner291.android.application)
     alias(libs.plugins.scanner291.android.application.compose)
     alias(libs.plugins.scanner291.hilt)
+    alias(libs.plugins.roborazzi)
 }
 
 /**
@@ -124,6 +125,8 @@ dependencies {
     testImplementation(libs.androidx.test.junit)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
     kspTest(libs.hilt.compiler)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)

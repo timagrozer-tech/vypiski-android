@@ -18,6 +18,8 @@ jobs:
     name: Тесты, проверки офлайн-режима, Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write   # только для публикации снимков экранов в ветку scanner291-screenshots
     steps:
       - uses: actions/checkout@v5
 
@@ -48,12 +50,33 @@ jobs:
       - name: Снимки дизайн-системы (Roborazzi, светлая и тёмная темы)
         run: tools/ci/gradle.sh :core:designsystem:recordRoborazziDebug
 
-      - name: Артефакт снимков дизайн-системы
+      - name: Снимки экранов приложения (Roborazzi, настоящие данные)
+        run: tools/ci/gradle.sh :app:recordRoborazziDebug --tests '*AppScreenshotTest'
+
+      - name: Артефакт снимков
         uses: actions/upload-artifact@v4
         with:
-          name: design-screenshots
-          path: core/designsystem/build/outputs/roborazzi/
+          name: screenshots
+          path: |
+            core/designsystem/build/outputs/roborazzi/
+            app/build/outputs/roborazzi/
           if-no-files-found: error
+
+      - name: Публикация снимков в ветку scanner291-screenshots
+        if: github.event_name == 'push' && github.ref == 'refs/heads/scanner291'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          D="$RUNNER_TEMP/shots"; mkdir -p "$D"
+          cp app/build/outputs/roborazzi/*.png core/designsystem/build/outputs/roborazzi/*.png "$D"/
+          cd "$D"
+          printf '# Снимки экранов 291 Сканер\n\nКоммит %s, %s. Ветка перезаписывается при каждой сборке.\n' "$GITHUB_SHA" "$(date -u +%FT%TZ)" > README.md
+          git init -q -b scanner291-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -qm "Снимки экранов для ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:scanner291-screenshots
+          echo "::notice title=Снимки экранов::$(ls *.png | wc -l) файлов → ветка scanner291-screenshots"
 
       - name: Офлайн-режим — нет INTERNET и сетевых SDK
         run: tools/ci/gradle.sh :app:verifyNoNetwork
@@ -116,6 +139,8 @@ jobs:
     name: Инструментальные тесты (эмулятор API 34)
     runs-on: ubuntu-latest
     needs: build
+    # Тесты на эмуляторе (30–60 мин) — только вручную (Actions → Run workflow), не на каждый push.
+    if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
