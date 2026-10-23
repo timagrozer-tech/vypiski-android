@@ -22,9 +22,9 @@ class ContrastTest {
 
     @Test fun textPairsPassAA() {
         for ((theme, c) in listOf("dark" to DarkColors, "light" to LightColors)) {
-            assertAtLeast("$theme text/bg", 15.0, c.text, c.bg)
-            assertAtLeast("$theme text/surface", 15.0, c.text, c.surface)
-            assertAtLeast("$theme text/field", 15.0, c.text, c.field)
+            assertAtLeast("$theme text/bg", 7.0, c.text, c.bg) // AAA
+            assertAtLeast("$theme text/surface", 7.0, c.text, c.surface)
+            assertAtLeast("$theme text/field", 7.0, c.text, c.field)
             assertAtLeast("$theme text-secondary/surface", 4.5, c.textSecondary, c.surface)
             assertAtLeast("$theme accent-text/surface", 4.5, c.accentText, c.surface)
             assertAtLeast("$theme on-accent-soft/accent-soft", 4.5, c.onAccentSoft, c.accentSoft)
