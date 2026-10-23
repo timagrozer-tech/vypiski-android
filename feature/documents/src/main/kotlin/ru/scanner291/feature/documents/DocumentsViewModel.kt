@@ -16,6 +16,7 @@ import ru.scanner291.core.database.DocumentWithPages
 import ru.scanner291.core.database.PageEntity
 import ru.scanner291.core.storage.DocumentRepository
 import ru.scanner291.core.storage.PageImageLoader
+import ru.scanner291.core.storage.recipeFor
 import javax.inject.Inject
 
 sealed interface ListState {
@@ -45,6 +46,7 @@ sealed interface ViewerState {
 class ViewerViewModel @Inject constructor(
     private val repo: DocumentRepository,
     private val loader: PageImageLoader,
+    private val processed: ru.scanner291.core.storage.ProcessedPageLoader,
     saved: SavedStateHandle,
 ) : ViewModel() {
     val docId: String = saved.toRoute<ViewerRoute>().docId
@@ -53,5 +55,12 @@ class ViewerViewModel @Inject constructor(
         .map { if (it == null) ViewerState.NotFound else ViewerState.Ready(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerState.Loading)
 
-    suspend fun image(page: PageEntity): ImageBitmap? = loader.load(page, 1600)?.asImageBitmap()
+    /**
+     * Страница в просмотре — обработанная по рецепту (углы, фильтр, тени…); если обработка недоступна
+     * (OpenCV не загрузился), показывается оригинал.
+     */
+    suspend fun image(page: PageEntity): ImageBitmap? {
+        val m = ru.scanner291.core.storage.scanModeOf((state.value as? ViewerState.Ready)?.doc?.doc?.mode ?: "")
+        return (processed.load(page, page.recipeFor(m), m, 1600) ?: loader.load(page, 1600))?.asImageBitmap()
+    }
 }

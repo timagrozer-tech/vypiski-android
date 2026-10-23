@@ -49,6 +49,8 @@ data class PageEntity(
     val corners: String? = null,
     /** CornersSource.name */
     val cornersSource: String? = null,
+    /** Рецепт обработки «v1;f=…;r=…» (RecipeCodec); null — по умолчанию для режима документа. Этап 7. */
+    val recipe: String? = null,
 )
 
 /** Откуда углы: найдены автоматически, поправлены вручную или выбран весь лист. */

@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * База версии 1 (как её создала сборка этапа 5) открывается версией 2 без потери документов.
+ * База версии 1 (как её создала сборка этапа 5) открывается текущей версией (через все миграции) без потери документов.
  * SQL v1 повторяет то, что генерирует Room для сущностей этапа 5.
  */
 @RunWith(AndroidJUnit4::class)
@@ -44,6 +44,10 @@ class MigrationTest {
             assertNull(doc.pages.single().corners)
             room.documentDao().setCorners("p1", "0.1,0.1;0.9,0.1;0.9,0.9;0.1,0.9", CornersSource.MANUAL.name)
             assertEquals(CornersSource.MANUAL.name, room.documentDao().page("p1")!!.cornersSource)
+            assertNull(doc.pages.single().recipe)
+            room.documentDao().setRecipe("p1", "v1;f=BW;r=90;b=0.00;c=1.00;s=1;n=1")
+            assertEquals("v1;f=BW;r=90;b=0.00;c=1.00;s=1;n=1", room.documentDao().page("p1")!!.recipe)
+            assertEquals("Рапорт Иванова", room.documentDao().document("d1")!!.doc.title)
         } finally {
             room.close()
             ctx.deleteDatabase(name)

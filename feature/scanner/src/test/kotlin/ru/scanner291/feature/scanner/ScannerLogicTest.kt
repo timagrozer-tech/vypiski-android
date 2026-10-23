@@ -1,6 +1,7 @@
 package ru.scanner291.feature.scanner
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import ru.scanner291.core.common.geometry.Pt
 import ru.scanner291.core.quality.capture.CaptureState
@@ -21,5 +22,12 @@ class ScannerLogicTest {
         assertEquals(1, nearestCorner(view, Pt(290.0, 30.0), 48.0))
         assertEquals(3, nearestCorner(view, Pt(20.0, 380.0), 48.0))
         assertEquals(-1, nearestCorner(view, Pt(150.0, 200.0), 48.0)) // середина листа — не угол
+    }
+
+    @Test fun enhanceLabels() {
+        assertEquals("0", brightnessLabel(0f)); assertEquals("+25", brightnessLabel(0.25f)); assertEquals("−100", brightnessLabel(-1f))
+        assertEquals("×1,50", contrastLabel(1.5f))
+        assertEquals(null, filterNote(ru.scanner291.core.common.model.FilterType.TEXT_BOOST))
+        assertTrue(filterNote(ru.scanner291.core.common.model.FilterType.PHOTO)!!.contains("Фото"))
     }
 }

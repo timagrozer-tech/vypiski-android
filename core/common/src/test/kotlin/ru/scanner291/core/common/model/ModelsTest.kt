@@ -26,4 +26,13 @@ class ModelsTest {
         val left = Redaction.filterWords(words, listOf(NRect(0.66f, 0.16f, 0.34f, 0.09f)))
         assertEquals(listOf("Паспорт"), left.map { it.text })
     }
+
+    @Test fun sliderMovesMergeIntoOneHistoryEntry() {
+        val h = EditHistory(PageRecipe())
+        h.apply(h.current.copy(brightness = 0.1f))
+        h.replaceCurrent(h.current.copy(brightness = 0.2f))
+        h.replaceCurrent(h.current.copy(brightness = 0.3f))
+        assertEquals(0.3f, h.current.brightness)
+        h.undo(); assertEquals(PageRecipe(), h.current)
+    }
 }

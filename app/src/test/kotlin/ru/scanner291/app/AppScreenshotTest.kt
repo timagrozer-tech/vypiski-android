@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -66,6 +67,7 @@ import javax.imageio.ImageIO
 class AppScreenshotTest {
     @javax.inject.Inject lateinit var repo: DocumentRepository
     @javax.inject.Inject lateinit var paths: DocumentPaths
+    @javax.inject.Inject lateinit var loader: ru.scanner291.core.storage.PageImageLoader
 
     @get:Rule(order = 0) val hilt = HiltAndroidRule(this)
     @get:Rule(order = 1) val rule = createAndroidComposeRule<HiltTestActivity>()
@@ -152,13 +154,39 @@ class AppScreenshotTest {
         id
     }
 
+    /**
+     * Диагностика для снимков: открывается ли JPEG в этой среде (Robolectric) и что видит загрузчик.
+     * Пишется рядом со снимками (diag.txt), чтобы отличить ограничение среды от ошибки приложения.
+     */
+    private fun diagnostics(id: String) {
+        val page = runBlocking { repo.document(id)!!.orderedPages.first() }
+        val f = paths.absolute(page.originalPath)
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(f.path, bounds)
+        val full = runCatching { android.graphics.BitmapFactory.decodeFile(f.path) }
+        val viaDecoder = runCatching { android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(f)) }
+        val loaded = runBlocking { loader.load(page, 1600) }
+        val px = loaded?.let { "%08x".format(it.getPixel(10, 10)) }
+        File("build/outputs/roborazzi").mkdirs()
+        File("build/outputs/roborazzi/diag.txt").writeText(
+            "файл: ${f.length()} байт, существует=${f.exists()}\n" +
+                "BitmapFactory границы: ${bounds.outWidth}x${bounds.outHeight} mime=${bounds.outMimeType}\n" +
+                "BitmapFactory полностью: ${full.getOrNull()?.let { "${it.width}x${it.height}" }} ошибка=${full.exceptionOrNull()}\n" +
+                "ImageDecoder: ${viaDecoder.getOrNull()?.let { "${it.width}x${it.height}" }} ошибка=${viaDecoder.exceptionOrNull()}\n" +
+                "PageImageLoader: ${loaded?.let { "${it.width}x${it.height}, пиксель(10,10)=$px" }}\n",
+        )
+    }
+
     @Test fun screens() {
         shot("01-home-empty", "Сканировать")
         val id = seed()
+        diagnostics(id)
         shot("02-home", "Справка Иванов")
         go(DocumentsRoute); shot("03-documents", "Справка Иванов")
         go(ViewerRoute(id)); shot("04-viewer", "2 страницы")
         go(ProcessingRoute(id)); shot("05-processing-corners", "Найти автоматически")
+        rule.onAllNodesWithText("Улучшение")[0].performClick()
+        shot("05b-processing-enhance", "Убрать тени")
         back(); back()
         go(CameraRoute); shot("06-camera", "Назвать файл по ФИО")
         back()

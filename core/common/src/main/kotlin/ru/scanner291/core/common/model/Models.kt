@@ -98,6 +98,9 @@ class EditHistory<T>(initial: T, private val limit: Int = 100) {
         current = next; redo.clear()
     }
 
+    /** Заменить текущее значение без новой записи в истории (непрерывное движение ползунка). */
+    fun replaceCurrent(next: T) { current = next; redo.clear() }
+
     fun undo(): T { if (canUndo) { redo.addLast(current); current = undo.removeLast() }; return current }
     fun redo(): T { if (canRedo) { undo.addLast(current); current = redo.removeLast() }; return current }
 }

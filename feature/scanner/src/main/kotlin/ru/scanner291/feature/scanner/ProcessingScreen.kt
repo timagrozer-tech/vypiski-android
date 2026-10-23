@@ -16,6 +16,21 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.CropFree
+import androidx.compose.material.icons.rounded.BrokenImage
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.RotateLeft
+import androidx.compose.material.icons.rounded.RotateRight
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.automirrored.rounded.Redo
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +66,13 @@ import ru.scanner291.core.common.geometry.QuadTransforms
 import ru.scanner291.core.database.CornersSource
 import ru.scanner291.designsystem.ButtonVariant
 import ru.scanner291.designsystem.EmptyState
+import ru.scanner291.designsystem.FilterStrip
+import ru.scanner291.designsystem.ScanSegmented
+import ru.scanner291.designsystem.SliderRow
+import ru.scanner291.designsystem.ToggleRow
+import ru.scanner291.core.common.model.FilterType
+import ru.scanner291.core.common.render.usesDenoise
+import ru.scanner291.core.common.render.usesShadowRemoval
 import ru.scanner291.designsystem.ScanButton
 import ru.scanner291.designsystem.ScanTopBar
 import ru.scanner291.designsystem.ScannerTheme
@@ -59,11 +81,38 @@ import ru.scanner291.designsystem.Status
 import ru.scanner291.designsystem.StatusLine
 import ru.scanner291.designsystem.Type
 import kotlin.math.hypot
+import kotlin.math.roundToInt
+
+/** Действия экрана обработки (один объект вместо длинного списка параметров). */
+data class ProcessingActions(
+    val onMove: (Quad) -> Unit = {},
+    val onAuto: () -> Unit = {},
+    val onFull: () -> Unit = {},
+    val onSave: () -> Unit = {},
+    val onOpenPage: (Int) -> Unit = {},
+    val onStep: (ProcessingStep) -> Unit = {},
+    val onFilter: (FilterType) -> Unit = {},
+    val onRotate: (Int) -> Unit = {},
+    val onShadows: (Boolean) -> Unit = {},
+    val onDenoise: (Boolean) -> Unit = {},
+    val onBrightness: (Float) -> Unit = {},
+    val onContrast: (Float) -> Unit = {},
+    val onReset: () -> Unit = {},
+    val onUndo: () -> Unit = {},
+    val onRedo: () -> Unit = {},
+    val onBack: () -> Unit = {},
+)
 
 @Composable
 internal fun ProcessingRouteScreen(onBack: () -> Unit, vm: ProcessingViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    ProcessingScreen(state, vm::move, vm::autoDetect, vm::fullPage, vm::save, vm::open, onBack)
+    ProcessingScreen(
+        state,
+        ProcessingActions(
+            vm::move, vm::autoDetect, vm::fullPage, vm::save, vm::open, vm::selectStep, vm::setFilter, vm::rotate,
+            vm::setShadows, vm::setDenoise, vm::setBrightness, vm::setContrast, vm::reset, vm::undo, vm::redo, onBack,
+        ),
+    )
 }
 
 fun sourceText(s: CornersSource?): String = when (s) {
@@ -73,56 +122,120 @@ fun sourceText(s: CornersSource?): String = when (s) {
     null -> "Углы не заданы — используется весь кадр"
 }
 
+/** Подпись под ползунком яркости: −100…+100. Покрыто тестом. */
+fun brightnessLabel(v: Float): String = (v * 100).roundToInt().let { if (it > 0) "+$it" else if (it < 0) "−${-it}" else "0" }
+fun contrastLabel(v: Float): String = "×" + String.format(java.util.Locale.ROOT, "%.2f", v).replace('.', ',')
+
+/** Почему переключатель недоступен для фильтра (или null). */
+fun filterNote(f: FilterType): String? = when (f) {
+    FilterType.ORIGINAL -> "«Оригинал»: только перспектива, поворот, яркость и контраст"
+    FilterType.PHOTO -> "«Фото»: освещение и шум не выравниваются, чтобы сохранить снимок естественным"
+    else -> null
+}
+
 /**
- * Обработка, шаг 1 (этап 6): углы листа. Перспектива, тени и фильтры — этапы 7–9 на этом же экране.
+ * Обработка страницы: «Края» (углы листа, этап 6) и «Улучшение» (фильтр, поворот, тени, шум,
+ * яркость, контраст — этап 7). Оригинал не меняется; «Сохранить» записывает рецепт.
  */
 @Composable
-fun ProcessingScreen(
-    state: ProcessingState,
-    onMove: (Quad) -> Unit,
-    onAuto: () -> Unit,
-    onFull: () -> Unit,
-    onSave: () -> Unit,
-    onOpenPage: (Int) -> Unit,
-    onBack: () -> Unit,
-) {
+fun ProcessingScreen(state: ProcessingState, a: ProcessingActions) {
     Column(Modifier.fillMaxSize()) {
+        ScanTopBar(title = "Обработка", onBack = a.onBack)
         when (state) {
-            ProcessingState.Loading -> {
-                ScanTopBar(title = "Обработка", onBack = onBack)
+            ProcessingState.Loading ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ScannerTheme.colors.accent) }
-            }
-            ProcessingState.NotFound -> {
-                ScanTopBar(title = "Обработка", onBack = onBack)
+            ProcessingState.NotFound ->
                 EmptyState(Icons.Rounded.AutoFixHigh, "Документ не найден", "Откройте отсканированный документ, чтобы выровнять края.")
-            }
             is ProcessingState.Ready -> {
-                ScanTopBar(title = "Обработка", onBack = onBack)
+                ScanSegmented(ProcessingStep.entries, state.step, { it.title }, a.onStep, Modifier.padding(horizontal = Space.s4))
                 if (state.pageCount > 1) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { onOpenPage(state.pageIndex - 1) }, enabled = state.pageIndex > 0) {
+                        IconButton(onClick = { a.onOpenPage(state.pageIndex - 1) }, enabled = state.pageIndex > 0) {
                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Предыдущая страница")
                         }
                         Text("Страница ${state.pageIndex + 1} из ${state.pageCount}", style = Type.label, color = ScannerTheme.colors.text,
                             modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        IconButton(onClick = { onOpenPage(state.pageIndex + 1) }, enabled = state.pageIndex < state.pageCount - 1) {
+                        IconButton(onClick = { a.onOpenPage(state.pageIndex + 1) }, enabled = state.pageIndex < state.pageCount - 1) {
                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Следующая страница")
                         }
                     }
                 }
-                Box(Modifier.weight(1f).fillMaxWidth().padding(Space.s4)) {
-                    if (state.image != null) CornerEditor(state.image, state.corners, onMove, Modifier.fillMaxSize())
-                }
-                Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-                    StatusLine(if (state.message != null && state.message.startsWith("Лист не найден")) Status.WARNING else Status.SUCCESS,
-                        state.message ?: sourceText(state.source))
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
-                        ScanButton("Найти автоматически", onAuto, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.AutoFixHigh)
-                        ScanButton("Весь лист", onFull, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.CropFree)
-                    }
-                    ScanButton("Сохранить", onSave, Modifier.fillMaxWidth(), enabled = state.dirty)
+                when (state.step) {
+                    ProcessingStep.Corners -> CornersStep(state, a)
+                    ProcessingStep.Enhance -> EnhanceStep(state, a)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.CornersStep(state: ProcessingState.Ready, a: ProcessingActions) {
+    Box(Modifier.weight(1f).fillMaxWidth().padding(Space.s4)) {
+        if (state.image != null) CornerEditor(state.image, state.corners, a.onMove, Modifier.fillMaxSize())
+        else ImageMissing()
+    }
+    Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+        StatusLine(if (state.message != null && state.message.startsWith("Лист не найден")) Status.WARNING else Status.SUCCESS,
+            state.message ?: sourceText(state.source))
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+            ScanButton("Найти автоматически", a.onAuto, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.AutoFixHigh)
+            ScanButton("Весь лист", a.onFull, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.CropFree)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+            ScanButton("Улучшение", { a.onStep(ProcessingStep.Enhance) }, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.Tune)
+            ScanButton("Сохранить", a.onSave, Modifier.weight(1f), enabled = state.dirty)
+        }
+    }
+}
+
+@Composable
+private fun ImageMissing() {
+    EmptyState(Icons.Rounded.BrokenImage, "Изображение не открылось", "Файл страницы не удалось прочитать. Оригинал не изменён.")
+}
+
+@Composable
+private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingActions) {
+    val c = ScannerTheme.colors
+    val r = state.recipe
+    var showOriginal by remember { mutableStateOf(false) }
+    // Превью: результат; удержание пальцем — исходный снимок для сравнения.
+    Box(
+        Modifier.weight(1f).fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s2)
+            .pointerInput(Unit) { detectTapGestures(onPress = { showOriginal = true; tryAwaitRelease(); showOriginal = false }) }
+            .semantics { contentDescription = "Результат обработки. Удерживайте, чтобы увидеть исходный снимок" },
+        contentAlignment = Alignment.Center,
+    ) {
+        val shown = if (showOriginal) state.image else state.processed ?: state.image
+        if (shown != null) {
+            androidx.compose.foundation.Image(shown, contentDescription = null, modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+        } else ImageMissing()
+        if (state.rendering) CircularProgressIndicator(Modifier.align(Alignment.TopEnd).size(24.dp), color = c.accent, strokeWidth = 2.dp)
+        if (showOriginal) Text("Исходный снимок", style = Type.captionSm, color = c.text,
+            modifier = Modifier.align(Alignment.TopStart).background(c.field, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp))
+    }
+    FilterStrip(FilterType.entries, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
+    Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { a.onRotate(-90) }) { Icon(Icons.Rounded.RotateLeft, contentDescription = "Повернуть влево") }
+            IconButton(onClick = { a.onRotate(90) }) { Icon(Icons.Rounded.RotateRight, contentDescription = "Повернуть вправо") }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = a.onUndo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Отменить") }
+            IconButton(onClick = a.onRedo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Повторить") }
+        }
+        filterNote(r.filter)?.let { Text(it, style = Type.caption, color = c.textSecondary, modifier = Modifier.padding(horizontal = Space.s4)) }
+        ToggleRow("Убрать тени", r.removeShadows, a.onShadows, description = "Выравнивает освещение листа",
+            enabled = r.filter.usesShadowRemoval())
+        ToggleRow("Убрать шум", r.denoise, a.onDenoise, description = "Сглаживает зерно камеры", enabled = r.filter.usesDenoise())
+        SliderRow("Яркость", r.brightness, a.onBrightness, -1f..1f, ::brightnessLabel)
+        SliderRow("Контраст", r.contrast, a.onContrast, 0.5f..2f, ::contrastLabel)
+    }
+    Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+        state.message?.let { StatusLine(if (it.startsWith("Не удалось")) Status.WARNING else Status.SUCCESS, it) }
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+            ScanButton("Сбросить", a.onReset, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.RestartAlt)
+            ScanButton("Сохранить", a.onSave, Modifier.weight(1f), enabled = state.dirty)
         }
     }
 }

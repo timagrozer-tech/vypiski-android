@@ -48,7 +48,14 @@ class PageImageLoader @Inject constructor(private val paths: DocumentPaths) {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, bounds)
         val sample = sampleSize(bounds.outWidth, bounds.outHeight, maxSide)
-        val bmp = BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val bmp = BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })
+            // Запасной путь: ImageDecoder (сам поворачивает по EXIF) — для файлов, которые не открыл BitmapFactory.
+            ?: return runCatching {
+                android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(f)) { d, info, _ ->
+                    d.setTargetSampleSize(sampleSize(info.size.width, info.size.height, maxSide))
+                    d.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            }.getOrNull()
         val rot = runCatching { ExifInterface(f.path).rotationDegrees }.getOrDefault(0)
         if (rot == 0) return bmp
         val m = Matrix().apply { postRotate(rot.toFloat()) }

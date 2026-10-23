@@ -6,10 +6,10 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
- * Индекс документов. v1 — этап 5 (документы и страницы), v2 — этап 6 (углы листа). Папки, теги, FTS OCR, корзина —
+ * Индекс документов. v1 — этап 5 (документы и страницы), v2 — этап 6 (углы листа), v3 — этап 7 (рецепт обработки). Папки, теги, FTS OCR, корзина —
  * этапы 10 и 14 через миграции (схемы — в core/database/schemas, сравниваются тестом миграций).
  */
-@Database(entities = [DocumentEntity::class, PageEntity::class], version = 2, exportSchema = true)
+@Database(entities = [DocumentEntity::class, PageEntity::class], version = 3, exportSchema = true)
 abstract class ScannerDatabase : RoomDatabase() {
     abstract fun documentDao(): DocumentDao
 
@@ -21,6 +21,12 @@ abstract class ScannerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE pages ADD COLUMN cornersSource TEXT")
             }
         }
-        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2)
+        /** v2 → v3 (этап 7): рецепт обработки страницы. Только ADD COLUMN. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pages ADD COLUMN recipe TEXT")
+            }
+        }
+        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
     }
 }

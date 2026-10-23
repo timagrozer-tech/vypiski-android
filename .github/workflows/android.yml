@@ -68,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           D="$RUNNER_TEMP/shots"; mkdir -p "$D"
-          cp app/build/outputs/roborazzi/*.png core/designsystem/build/outputs/roborazzi/*.png "$D"/
+          cp app/build/outputs/roborazzi/*.png app/build/outputs/roborazzi/*.txt core/designsystem/build/outputs/roborazzi/*.png "$D"/ 2>/dev/null || true
           cd "$D"
           printf '# Снимки экранов 291 Сканер\n\nКоммит %s, %s. Ветка перезаписывается при каждой сборке.\n' "$GITHUB_SHA" "$(date -u +%FT%TZ)" > README.md
           git init -q -b scanner291-screenshots

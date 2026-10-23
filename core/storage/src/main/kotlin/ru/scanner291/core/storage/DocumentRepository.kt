@@ -70,6 +70,12 @@ class DocumentRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             dao.setCorners(pageId, quad?.let { ru.scanner291.core.common.geometry.QuadCodec.encode(it) }, source?.name)
         }
+    /** Рецепт обработки (фильтр, поворот, тени…). null — вернуть страницу к рецепту по умолчанию. */
+    suspend fun setRecipe(pageId: String, recipe: ru.scanner291.core.common.model.PageRecipe?) =
+        withContext(Dispatchers.IO) {
+            dao.setRecipe(pageId, recipe?.let { ru.scanner291.core.common.render.RecipeCodec.encode(it) })
+        }
+
     fun originalFile(page: PageEntity): File = paths.absolute(page.originalPath)
 
     suspend fun createDocument(mode: ScanMode, source: DocumentSource, title: String, now: Long = System.currentTimeMillis()): String =

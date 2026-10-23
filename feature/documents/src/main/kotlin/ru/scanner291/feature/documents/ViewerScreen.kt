@@ -69,7 +69,7 @@ fun ViewerScreen(
                 val pages = state.doc.orderedPages
                 ScanTopBar(title = state.doc.doc.title, onBack = onBack) {
                     IconButton(onClick = { onProcess(0) }) {
-                        Icon(Icons.Rounded.Crop, contentDescription = "Обработать: углы листа", tint = ScannerTheme.colors.accentText)
+                        Icon(Icons.Rounded.Crop, contentDescription = "Обработать: углы листа и улучшение", tint = ScannerTheme.colors.accentText)
                     }
                 }
                 Text(
@@ -91,9 +91,11 @@ fun ViewerScreen(
 @Composable
 private fun PageView(page: PageEntity, number: Int, image: suspend (PageEntity) -> ImageBitmap?, onClick: () -> Unit) {
     val c = ScannerTheme.colors
-    val bmp by produceState<ImageBitmap?>(null, page.id) { value = image(page) }
+    // Ключ — вся страница: после сохранения рецепта (углы, фильтр) изображение пересчитывается.
+    val bmp by produceState<ImageBitmap?>(null, page) { value = image(page) }
     val shape = RoundedCornerShape(Radius.md)
-    val ratio = if (page.width > 0 && page.height > 0) page.width.toFloat() / page.height else 3f / 4f
+    val ratio = bmp?.let { it.width.toFloat() / it.height }
+        ?: if (page.width > 0 && page.height > 0) page.width.toFloat() / page.height else 3f / 4f
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(ratio).clip(shape).background(c.paper).border(1.dp, c.glassStroke, shape)

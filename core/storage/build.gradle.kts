@@ -13,6 +13,7 @@ android {
 dependencies {
     api(project(":core:common"))
     api(project(":core:database"))
+    implementation(project(":core:imageprocessing"))
     implementation(libs.kotlinx.coroutines.android)
     api(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
