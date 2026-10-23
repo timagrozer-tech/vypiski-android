@@ -7,7 +7,11 @@ import kotlinx.serialization.Serializable
 @Serializable data object DocumentsRoute
 @Serializable data class ViewerRoute(val docId: String)
 
-fun NavGraphBuilder.documentsScreens(onOpenDocument: (String) -> Unit, onBack: () -> Unit) {
+fun NavGraphBuilder.documentsScreens(
+    onOpenDocument: (String) -> Unit,
+    onProcess: (docId: String, pageIndex: Int) -> Unit,
+    onBack: () -> Unit,
+) {
     composable<DocumentsRoute> { DocumentsRouteScreen(onOpenDocument) }
-    composable<ViewerRoute> { ViewerRouteScreen(onBack) }
+    composable<ViewerRoute> { ViewerRouteScreen(onProcess, onBack) }
 }

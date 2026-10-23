@@ -137,10 +137,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back emulated
-          script: |
-            adb shell svc wifi disable || true
-            adb shell svc data disable || true
-            ./gradlew connectedDebugAndroidTest
+          script: tools/ci/emulator-tests.sh
 
   release:
     name: Подписанный Release APK

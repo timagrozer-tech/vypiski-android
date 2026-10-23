@@ -7,7 +7,11 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.SurfaceRequest
@@ -36,6 +40,7 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -58,6 +63,7 @@ fun FlashMode.next(): FlashMode = FlashMode.entries[(ordinal + 1) % FlashMode.en
 class CameraController internal constructor(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
+    private val onFrame: ((FrameResult) -> Unit)?,
 ) {
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     var surfaceRequest: SurfaceRequest? by mutableStateOf(null)
@@ -71,15 +77,40 @@ class CameraController internal constructor(
     private var provider: ProcessCameraProvider? = null
     private var camera: Camera? = null
 
-    private val preview = Preview.Builder().build().apply {
+    /** Все потоки — 4:3: рамка из анализа совпадает с превью и снимком. */
+    private val ratio43 = ResolutionSelector.Builder()
+        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+        .build()
+
+    private val preview = Preview.Builder().setResolutionSelector(ratio43).build().apply {
         setSurfaceProvider { request -> surfaceRequest = request }
     }
 
     /** Максимальное качество: документ важнее скорости затвора. */
     private val capture = ImageCapture.Builder()
+        .setResolutionSelector(ratio43)
         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
         .setFlashMode(ImageCapture.FLASH_MODE_OFF)
         .build()
+
+    private val analysisExecutor = Executors.newSingleThreadExecutor()
+    private val analysis: ImageAnalysis? = onFrame?.let { cb ->
+        ImageAnalysis.Builder()
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setResolutionStrategy(ResolutionStrategy(android.util.Size(640, 480), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                    .build(),
+            )
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+            .build()
+            .also { it.setAnalyzer(analysisExecutor, DocumentFrameAnalyzer({ r -> scope.launch { cb(r) } })) }
+    }
+
+    /** Работает ли анализ кадров (на части устройств три потока одновременно не поддерживаются). */
+    var analysisActive: Boolean by mutableStateOf(false)
+        private set
 
     fun start() {
         scope.launch {
@@ -91,7 +122,16 @@ class CameraController internal constructor(
                     return@launch
                 }
                 p.unbindAll()
-                val cam = p.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                val cam = try {
+                    if (analysis != null) p.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture, analysis)
+                        .also { analysisActive = true }
+                    else p.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                } catch (e: IllegalArgumentException) {
+                    // Комбинация с анализом не поддерживается — съёмка без автопоиска.
+                    Log.w(TAG, "Анализ кадров недоступен на этом устройстве", e)
+                    p.unbindAll(); analysisActive = false
+                    p.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                }
                 camera = cam
                 hasFlash = cam.cameraInfo.hasFlashUnit()
                 status = CameraStatus.Running
@@ -136,17 +176,23 @@ class CameraController internal constructor(
     fun release() {
         runCatching { camera?.cameraControl?.enableTorch(false) }
         runCatching { provider?.unbind(preview, capture) }
+        runCatching { analysis?.let { provider?.unbind(it); it.clearAnalyzer() } }
+        analysisExecutor.shutdown()
         scope.cancel()
     }
 
     private companion object { const val TAG = "Scanner291Camera" }
 }
 
+/** [onFrame] — результаты анализа кадров (на главном потоке); null — без анализа. */
 @Composable
-fun rememberCameraController(): CameraController {
+fun rememberCameraController(onFrame: ((FrameResult) -> Unit)? = null): CameraController {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
-    val controller = remember(context, owner) { CameraController(context, owner) }
+    val latest by androidx.compose.runtime.rememberUpdatedState(onFrame)
+    val controller = remember(context, owner) {
+        CameraController(context, owner, if (onFrame != null) { r -> latest?.invoke(r) } else null)
+    }
     DisposableEffect(controller) {
         controller.start()
         onDispose { controller.release() }

@@ -3,6 +3,7 @@ package ru.scanner291.feature.documents
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,14 +44,20 @@ import ru.scanner291.designsystem.Space
 import ru.scanner291.designsystem.Type
 
 @Composable
-internal fun ViewerRouteScreen(onBack: () -> Unit, vm: ViewerViewModel = hiltViewModel()) {
+internal fun ViewerRouteScreen(onProcess: (String, Int) -> Unit, onBack: () -> Unit, vm: ViewerViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    ViewerScreen(state, vm::image, onBack)
+    ViewerScreen(state, vm::image, { i -> onProcess(vm.docId, i) }, onBack)
 }
 
 /** Просмотр документа: страницы-оригиналы сверху вниз (уменьшенные для экрана, файл не меняется). */
 @Composable
-fun ViewerScreen(state: ViewerState, image: suspend (PageEntity) -> ImageBitmap?, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun ViewerScreen(
+    state: ViewerState,
+    image: suspend (PageEntity) -> ImageBitmap?,
+    onProcess: (pageIndex: Int) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier.fillMaxSize()) {
         when (state) {
             ViewerState.Loading -> ScanTopBar(title = "Просмотр", onBack = onBack)
@@ -57,7 +67,11 @@ fun ViewerScreen(state: ViewerState, image: suspend (PageEntity) -> ImageBitmap?
             }
             is ViewerState.Ready -> {
                 val pages = state.doc.orderedPages
-                ScanTopBar(title = state.doc.doc.title, onBack = onBack)
+                ScanTopBar(title = state.doc.doc.title, onBack = onBack) {
+                    IconButton(onClick = { onProcess(0) }) {
+                        Icon(Icons.Rounded.Crop, contentDescription = "Обработать: углы листа", tint = ScannerTheme.colors.accentText)
+                    }
+                }
                 Text(
                     RussianPlural.format(pages.size.toLong(), "страница", "страницы", "страниц"),
                     style = Type.body, color = ScannerTheme.colors.textSecondary,
@@ -67,7 +81,7 @@ fun ViewerScreen(state: ViewerState, image: suspend (PageEntity) -> ImageBitmap?
                     contentPadding = PaddingValues(Space.s4),
                     verticalArrangement = Arrangement.spacedBy(Space.s4),
                 ) {
-                    itemsIndexed(pages, key = { _, p -> p.id }) { i, p -> PageView(p, i + 1, image) }
+                    itemsIndexed(pages, key = { _, p -> p.id }) { i, p -> PageView(p, i + 1, image) { onProcess(i) } }
                 }
             }
         }
@@ -75,7 +89,7 @@ fun ViewerScreen(state: ViewerState, image: suspend (PageEntity) -> ImageBitmap?
 }
 
 @Composable
-private fun PageView(page: PageEntity, number: Int, image: suspend (PageEntity) -> ImageBitmap?) {
+private fun PageView(page: PageEntity, number: Int, image: suspend (PageEntity) -> ImageBitmap?, onClick: () -> Unit) {
     val c = ScannerTheme.colors
     val bmp by produceState<ImageBitmap?>(null, page.id) { value = image(page) }
     val shape = RoundedCornerShape(Radius.md)
@@ -83,7 +97,8 @@ private fun PageView(page: PageEntity, number: Int, image: suspend (PageEntity) 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(ratio).clip(shape).background(c.paper).border(1.dp, c.glassStroke, shape)
-                .semantics { contentDescription = "Страница $number" },
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = "Страница $number, открыть обработку" },
         ) {
             bmp?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.matchParentSize()) }
         }

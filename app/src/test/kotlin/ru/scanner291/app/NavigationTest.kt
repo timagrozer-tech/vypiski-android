@@ -132,6 +132,10 @@ class NavigationTest {
         rule.onNodeWithText("Приказ 15").performClick()
         rule.waitUntil(5_000) { title("1 страница") }
         assertTrue(nav.currentBackStackEntry?.destination?.route?.contains("ViewerRoute") == true)
+        // Просмотр → обработка (правка углов)
+        rule.onNodeWithContentDescription("Обработать: углы листа").performClick()
+        rule.waitUntil(5_000) { title("Найти автоматически") }
+        assertTrue(title("Весь лист"))
         assertTrue(id.isNotEmpty())
     }
 }

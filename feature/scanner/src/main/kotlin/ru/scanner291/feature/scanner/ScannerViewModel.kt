@@ -17,7 +17,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import ru.scanner291.core.camera.FrameResult
+import ru.scanner291.core.common.geometry.Quad
+import ru.scanner291.core.common.geometry.QuadTransforms
 import ru.scanner291.core.common.model.ScanMode
+import ru.scanner291.core.database.CornersSource
+import ru.scanner291.core.imageprocessing.BitmapDetection
+import ru.scanner291.core.quality.capture.AutoCaptureStabilizer
+import ru.scanner291.core.quality.capture.CaptureState
 import ru.scanner291.core.database.DocumentSource
 import ru.scanner291.core.database.PageEntity
 import ru.scanner291.core.intelligence.naming.DefaultNames
@@ -32,6 +40,23 @@ import javax.inject.Inject
 
 /** Текущая сессия пакетной съёмки: все снимки — страницы одного документа. */
 data class SessionUi(val docId: String?, val pageCount: Int, val lastPage: PageEntity?)
+
+/** Что показать поверх превью: рамка документа (нормализованные координаты), подсказка, прогресс автосъёмки. */
+data class FrameUi(val quad: Quad?, val frameW: Int, val frameH: Int, val hint: String?, val progress: Float?)
+
+/** Подсказка по состоянию автосъёмки (README CameraControls / ТЗ v3.0 ч. VII). Покрыто тестом. */
+fun captureHint(state: CaptureState): String? = when (state) {
+    CaptureState.Searching -> "Наведите камеру на документ"
+    is CaptureState.Aligning -> "Держите неподвижно…"
+    CaptureState.Ready -> "Снимаю"
+    CaptureState.Cooldown -> "Положите следующий лист"
+    is CaptureState.Blocked -> when (state.reason) {
+        CaptureState.Reason.TOO_SMALL -> "Поднесите камеру ближе"
+        CaptureState.Reason.BLURRY -> "Изображение размыто — держите неподвижно"
+        CaptureState.Reason.GLARE -> "Блик на документе — измените угол или выключите вспышку"
+        CaptureState.Reason.NOT_CONVEX -> "Документ виден не полностью"
+    }
+}
 
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
@@ -58,6 +83,33 @@ class ScannerViewModel @Inject constructor(
             SessionUi(id, pages.size, pages.lastOrNull())
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SessionUi(null, 0, null))
+
+    /** Автосъёмка после стабилизации; по умолчанию включена. */
+    val autoCapture: StateFlow<Boolean> = saved.getStateFlow(KEY_AUTO, true)
+    fun setAutoCapture(v: Boolean) { saved[KEY_AUTO] = v }
+
+    private val _frame = MutableStateFlow<FrameUi?>(null)
+    val frame: StateFlow<FrameUi?> = _frame.asStateFlow()
+    private val _autoShot = MutableStateFlow(0)
+    /** Увеличивается, когда стабилизатор разрешил автоснимок — экран нажимает затвор. */
+    val autoShot: StateFlow<Int> = _autoShot.asStateFlow()
+    private var stabilizer: AutoCaptureStabilizer? = null
+    private var lastPixelQuad: Quad? = null
+
+    /** Кадр анализа: обновить рамку и решить, пора ли снимать. */
+    fun onFrame(r: FrameResult) {
+        val st = stabilizer?.takeIf { it.frameW == r.frameW && it.frameH == r.frameH }
+            ?: AutoCaptureStabilizer(r.frameW, r.frameH).also { stabilizer = it }
+        val pixel = r.quad?.let { QuadTransforms.denormalize(it, r.frameW.toDouble(), r.frameH.toDouble()) }
+        lastPixelQuad = pixel
+        val state = st.onFrame(pixel, r.sharpness, r.glare, r.timeMs)
+        val progress = (state as? CaptureState.Aligning)?.progress ?: if (state == CaptureState.Ready) 1f else null
+        _frame.value = FrameUi(r.quad, r.frameW, r.frameH, if (autoCapture.value) captureHint(state) else null, if (autoCapture.value) progress else null)
+        if (autoCapture.value && state == CaptureState.Ready && !_busy.value) {
+            pixel?.let { st.onCaptured(it) }
+            _autoShot.value++
+        }
+    }
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
@@ -86,7 +138,9 @@ class ScannerViewModel @Inject constructor(
                 } catch (e: Exception) {
                     temp.delete(); throw e
                 }
-                repo.addCapturedPage(id, temp)
+                val page = repo.addCapturedPage(id, temp)
+                lastPixelQuad?.let { q -> stabilizer?.onCaptured(q) }
+                findCorners(page)
             } catch (e: Exception) {
                 Log.w(TAG, "capture failed", e)
                 _error.value = "Не удалось сохранить снимок. Попробуйте ещё раз."
@@ -106,9 +160,19 @@ class ScannerViewModel @Inject constructor(
 
     suspend fun thumbnail(page: PageEntity): ImageBitmap? = loader.load(page, 256)?.asImageBitmap()
 
+    /** Углы листа на сохранённом оригинале (уменьшенная копия ≤ 1024 px) → рецепт страницы. */
+    private fun findCorners(page: PageEntity) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val bmp = loader.load(page, 1024) ?: return@launch
+            val found = runCatching { BitmapDetection.detectNormalized(bmp) }.getOrNull()
+            if (found != null) repo.setCorners(page.id, found.first, CornersSource.AUTO)
+        }
+    }
+
     private companion object {
         const val KEY_DOC = "scan.docId"
         const val KEY_MODE = "scan.mode"
+        const val KEY_AUTO = "scan.auto"
         const val TAG = "Scanner291Scan"
     }
 }

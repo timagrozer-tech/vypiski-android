@@ -32,6 +32,7 @@ import ru.scanner291.feature.export.pdfToolsScreen
 import ru.scanner291.feature.home.HomeRoute
 import ru.scanner291.feature.home.homeScreen
 import ru.scanner291.feature.scanner.CameraRoute
+import ru.scanner291.feature.scanner.ProcessingRoute
 import ru.scanner291.feature.scanner.scannerScreens
 import ru.scanner291.feature.search.SearchRoute
 import ru.scanner291.feature.search.searchScreen
@@ -96,7 +97,11 @@ fun ScannerApp(navController: NavHostController = rememberNavController()) {
                 },
             )
             editorScreens(onBack = back)
-            documentsScreens(onOpenDocument = { navController.navigate(ViewerRoute(it)) }, onBack = back)
+            documentsScreens(
+                onOpenDocument = { navController.navigate(ViewerRoute(it)) },
+                onProcess = { id, page -> navController.navigate(ProcessingRoute(id, page)) },
+                onBack = back,
+            )
             searchScreen()
             pdfToolsScreen(onBack = back)
             settingsScreens(onOpenWatermark = { navController.navigate(WatermarkRoute) }, onBack = back)

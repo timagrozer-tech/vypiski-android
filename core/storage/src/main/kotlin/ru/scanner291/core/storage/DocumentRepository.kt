@@ -64,6 +64,12 @@ class DocumentRepository @Inject constructor(
     fun observeDocument(id: String): Flow<DocumentWithPages?> = dao.observeDocument(id)
     suspend fun document(id: String): DocumentWithPages? = dao.document(id)
     suspend fun page(id: String): PageEntity? = dao.page(id)
+
+    /** Углы листа (рецепт обработки). Оригинал не меняется — меняется только индекс. */
+    suspend fun setCorners(pageId: String, quad: ru.scanner291.core.common.geometry.Quad?, source: ru.scanner291.core.database.CornersSource?) =
+        withContext(Dispatchers.IO) {
+            dao.setCorners(pageId, quad?.let { ru.scanner291.core.common.geometry.QuadCodec.encode(it) }, source?.name)
+        }
     fun originalFile(page: PageEntity): File = paths.absolute(page.originalPath)
 
     suspend fun createDocument(mode: ScanMode, source: DocumentSource, title: String, now: Long = System.currentTimeMillis()): String =

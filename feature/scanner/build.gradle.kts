@@ -10,4 +10,6 @@ dependencies {
     implementation(project(":core:camera"))
     implementation(project(":core:storage"))
     implementation(project(":core:intelligence"))
+    implementation(project(":core:imageprocessing"))
+    implementation(project(":core:quality"))
 }

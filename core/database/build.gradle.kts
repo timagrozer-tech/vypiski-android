@@ -13,3 +13,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     androidTestImplementation(libs.kotlinx.coroutines.test)
 }
+
+android {
+    testOptions { unitTests { isIncludeAndroidResources = true } }
+}
+
+dependencies {
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.junit)
+}

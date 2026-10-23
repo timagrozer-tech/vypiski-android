@@ -43,6 +43,9 @@ interface DocumentDao {
     @Query("UPDATE documents SET updatedAt = :at WHERE id = :id")
     suspend fun touch(id: String, at: Long)
 
+    @Query("UPDATE pages SET corners = :corners, cornersSource = :source WHERE id = :pageId")
+    suspend fun setCorners(pageId: String, corners: String?, source: String?)
+
     @Query("DELETE FROM pages WHERE id = :pageId")
     suspend fun deletePage(pageId: String)
 

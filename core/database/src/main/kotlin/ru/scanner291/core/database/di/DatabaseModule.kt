@@ -18,6 +18,8 @@ object DatabaseModule {
     fun database(@ApplicationContext context: Context): ScannerDatabase =
         Room.databaseBuilder(context, ScannerDatabase::class.java, "scanner291.db")
             // Режим WAL (по умолчанию для Room) — устойчивость к обрыву записи.
+            // Только явные миграции: разрушающая миграция запрещена — документы пользователя не теряются.
+            .addMigrations(*ScannerDatabase.ALL_MIGRATIONS)
             .build()
 
     @Provides

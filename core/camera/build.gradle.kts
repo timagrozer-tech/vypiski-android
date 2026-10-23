@@ -9,6 +9,8 @@ android {
 dependencies {
     api(project(":core:common"))
     api(project(":core:quality"))
+    implementation(project(":core:imageprocessing"))
+    implementation(libs.opencv)
     api(libs.androidx.camera.core)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

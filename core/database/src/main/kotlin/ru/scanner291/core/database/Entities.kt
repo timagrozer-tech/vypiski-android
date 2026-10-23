@@ -45,7 +45,14 @@ data class PageEntity(
     val height: Int,
     val pdfPageIndex: Int?,
     val createdAt: Long,
+    /** Углы листа «x,y;x,y;x,y;x,y» в нормализованных координатах прямого изображения (QuadCodec); null — не заданы. */
+    val corners: String? = null,
+    /** CornersSource.name */
+    val cornersSource: String? = null,
 )
+
+/** Откуда углы: найдены автоматически, поправлены вручную или выбран весь лист. */
+enum class CornersSource { AUTO, MANUAL, FULL }
 
 /** Строка списка документов. */
 data class DocumentSummary(

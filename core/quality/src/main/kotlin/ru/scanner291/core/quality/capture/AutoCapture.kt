@@ -49,8 +49,8 @@ sealed interface CaptureState {
  * резким и без бликов. После съёмки — пауза до смены сцены.
  */
 class AutoCaptureStabilizer(
-    private val frameW: Int,
-    private val frameH: Int,
+    val frameW: Int,
+    val frameH: Int,
     private val holdMs: Long = 700,
     private val maxDriftFraction: Double = 0.012,
     private val minAreaFraction: Double = 0.18,
