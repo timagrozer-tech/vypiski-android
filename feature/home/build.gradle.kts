@@ -5,3 +5,8 @@ plugins {
 android {
     namespace = "ru.scanner291.feature.home"
 }
+
+dependencies {
+    implementation(project(":core:storage"))
+    implementation(project(":core:intelligence"))
+}

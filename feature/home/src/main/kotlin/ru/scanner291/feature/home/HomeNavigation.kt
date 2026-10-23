@@ -12,8 +12,9 @@ fun NavGraphBuilder.homeScreen(
     onOpenPdfTools: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenBatch: () -> Unit,
+    onOpenDocument: (String) -> Unit,
 ) {
     composable<HomeRoute> {
-        HomeScreen(onScan, onOpenDocuments, onOpenPdfTools, onOpenSearch, onOpenBatch)
+        HomeRouteScreen(onScan, onOpenDocuments, onOpenPdfTools, onOpenSearch, onOpenBatch, onOpenDocument)
     }
 }

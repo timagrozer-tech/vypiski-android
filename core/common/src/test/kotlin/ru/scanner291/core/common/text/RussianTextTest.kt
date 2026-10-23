@@ -22,4 +22,11 @@ class RussianTextTest {
         assertEquals("12.10.2024", HumanDate.format(LocalDateTime.of(2024, 10, 12, 9, 0), today))
         assertEquals("01.01.2026", HumanDate.format(LocalDateTime.of(2026, 1, 1, 0, 5), today))
     }
+
+    @Test fun documentRowSubtitle() {
+        val zone = java.time.ZoneId.of("Europe/Moscow")
+        val at = LocalDateTime.of(2026, 10, 23, 14, 32).atZone(zone).toInstant().toEpochMilli()
+        assertEquals("Сегодня, 14:32 · 3 стр.", documentSubtitle(at, 3, zone, LocalDate.of(2026, 10, 23)))
+        assertEquals("Вчера, 14:32 · 1 стр.", documentSubtitle(at, 1, zone, LocalDate.of(2026, 10, 24)))
+    }
 }

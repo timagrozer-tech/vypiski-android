@@ -5,3 +5,7 @@ plugins {
 android {
     namespace = "ru.scanner291.feature.documents"
 }
+
+dependencies {
+    implementation(project(":core:storage"))
+}

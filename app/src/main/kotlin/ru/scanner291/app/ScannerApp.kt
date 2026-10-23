@@ -24,6 +24,7 @@ import ru.scanner291.designsystem.rememberBackdrop
 import ru.scanner291.feature.batch.BatchSaveRoute
 import ru.scanner291.feature.batch.batchSaveScreen
 import ru.scanner291.feature.documents.DocumentsRoute
+import ru.scanner291.feature.documents.ViewerRoute
 import ru.scanner291.feature.documents.documentsScreens
 import ru.scanner291.feature.editor.editorScreens
 import ru.scanner291.feature.export.PdfToolsRoute
@@ -85,10 +86,17 @@ fun ScannerApp(navController: NavHostController = rememberNavController()) {
                 onOpenPdfTools = { navController.navigate(PdfToolsRoute) },
                 onOpenSearch = { navController.navigateTopLevel(Destination.Search) },
                 onOpenBatch = { navController.navigate(BatchSaveRoute) },
+                onOpenDocument = { navController.navigate(ViewerRoute(it)) },
             )
-            scannerScreens(onBack = back)
+            scannerScreens(
+                onBack = back,
+                // «Готово»: камера закрывается, открывается документ; «Назад» из документа — на прежний экран.
+                onDocumentReady = { id ->
+                    navController.navigate(ViewerRoute(id)) { popUpTo<CameraRoute> { inclusive = true } }
+                },
+            )
             editorScreens(onBack = back)
-            documentsScreens(onBack = back)
+            documentsScreens(onOpenDocument = { navController.navigate(ViewerRoute(it)) }, onBack = back)
             searchScreen()
             pdfToolsScreen(onBack = back)
             settingsScreens(onOpenWatermark = { navController.navigate(WatermarkRoute) }, onBack = back)

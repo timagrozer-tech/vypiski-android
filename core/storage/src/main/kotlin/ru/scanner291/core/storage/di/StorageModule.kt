@@ -30,6 +30,9 @@ object StorageModule {
     fun documentPaths(@ApplicationContext context: Context): DocumentPaths =
         DocumentPaths(context.filesDir, context.cacheDir)
 
+    @Provides
+    fun contentResolver(@ApplicationContext context: Context): android.content.ContentResolver = context.contentResolver
+
     @Provides @Singleton
     fun operationJournal(paths: DocumentPaths): OperationJournal = OperationJournal(paths.journal)
 

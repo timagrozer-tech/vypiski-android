@@ -8,8 +8,8 @@ import kotlinx.serialization.Serializable
 @Serializable data object CameraRoute
 @Serializable data class ProcessingRoute(val docId: String)
 
-fun NavGraphBuilder.scannerScreens(onBack: () -> Unit) {
-    composable<CameraRoute> { CameraRouteScreen(onBack = onBack) }
+fun NavGraphBuilder.scannerScreens(onBack: () -> Unit, onDocumentReady: (String) -> Unit) {
+    composable<CameraRoute> { CameraRouteScreen(onBack = onBack, onDone = onDocumentReady) }
     composable<ProcessingRoute> { entry ->
         ProcessingScreen(docId = entry.toRoute<ProcessingRoute>().docId, onBack = onBack)
     }

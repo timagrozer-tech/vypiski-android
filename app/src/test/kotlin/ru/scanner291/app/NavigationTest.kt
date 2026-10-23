@@ -19,6 +19,16 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import android.graphics.Bitmap
+import android.graphics.Color
+import kotlinx.coroutines.runBlocking
+import ru.scanner291.core.common.model.ScanMode
+import ru.scanner291.core.database.DocumentSource
+import ru.scanner291.core.storage.DocumentPaths
+import ru.scanner291.core.storage.DocumentRepository
+import java.io.File
+import javax.inject.Inject
 import ru.scanner291.designsystem.Destination
 import ru.scanner291.designsystem.ScannerTheme
 import ru.scanner291.feature.documents.ViewerRoute
@@ -34,7 +44,11 @@ import ru.scanner291.feature.scanner.ProcessingRoute
 @HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
 @Config(application = HiltTestApplication::class, sdk = [35], qualifiers = "w411dp-h891dp-xhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class NavigationTest {
+    @Inject lateinit var repo: DocumentRepository
+    @Inject lateinit var paths: DocumentPaths
+
     @get:Rule(order = 0) val hilt = HiltAndroidRule(this)
     @get:Rule(order = 1) val rule = createAndroidComposeRule<HiltTestActivity>()
 
@@ -78,6 +92,8 @@ class NavigationTest {
         rule.onNodeWithContentDescription("Назад").performClick()
         rule.onNodeWithText("Мои документы").performClick()
         assertEquals(Destination.Documents, current())
+        rule.onNodeWithText("Главная").performClick()
+        assertTrue(title("Импорт"))                                   // плитка импорта — системный выбор файлов
     }
 
     @Test fun documentScopedScreensOpenAndReportMissingDocument() {
@@ -100,5 +116,23 @@ class NavigationTest {
         rule.onNodeWithText("Водяной знак").performScrollTo().performClick()
         assertTrue(title("В/ч 65384"))
         assertTrue(title("Восстановить стандартные"))
+    }
+
+    @Test fun scannedDocumentAppearsInListAndOpens() {
+        val id = runBlocking {
+            val doc = repo.createDocument(ScanMode.ORDER, DocumentSource.CAMERA, "Приказ 15")
+            paths.work.mkdirs()
+            val f = File(paths.work, "t.jpg")
+            f.outputStream().use { Bitmap.createBitmap(120, 160, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            repo.addCapturedPage(doc, f)
+            doc
+        }
+        rule.waitUntil(5_000) { title("Приказ 15") }        // «Недавние документы» на главной
+        rule.onNodeWithText("Документы").performClick()
+        rule.waitUntil(5_000) { title("Приказ 15") }
+        rule.onNodeWithText("Приказ 15").performClick()
+        rule.waitUntil(5_000) { title("1 страница") }
+        assertTrue(nav.currentBackStackEntry?.destination?.route?.contains("ViewerRoute") == true)
+        assertTrue(id.isNotEmpty())
     }
 }

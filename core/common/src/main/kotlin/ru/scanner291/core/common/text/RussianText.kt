@@ -1,7 +1,9 @@
 package ru.scanner291.core.common.text
 
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** Склонение существительного после числа: 1 документ, 4 документа, 12 документов. */
@@ -40,4 +42,10 @@ object HumanDate {
         today.minusDays(1) -> "Вчера, ${at.format(time)}"
         else -> at.format(date)
     }
+}
+
+/** Подзаголовок строки документа: «Сегодня, 14:32 · 3 стр.». */
+fun documentSubtitle(updatedAtMillis: Long, pages: Int, zone: ZoneId = ZoneId.systemDefault(), today: LocalDate = LocalDate.now(zone)): String {
+    val at = LocalDateTime.ofInstant(Instant.ofEpochMilli(updatedAtMillis), zone)
+    return "${HumanDate.format(at, today)} · ${RussianPlural.pages(pages)}"
 }

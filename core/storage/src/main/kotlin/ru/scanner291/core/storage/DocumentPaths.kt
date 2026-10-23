@@ -15,7 +15,11 @@ class DocumentPaths(filesDir: File, cacheDir: File) {
     /** Корень для поиска брошенных временных файлов атомарной записи. */
     val filesRoot: File = filesDir
 
-    fun original(docId: String, pageId: String): File = File(docs, "$docId/original/$pageId.jpg")
+    fun original(docId: String, pageId: String, ext: String = "jpg"): File = File(docs, "$docId/original/$pageId.$ext")
+    fun trashed(docId: String, fileName: String): File = File(trash, "$docId/$fileName")
+    /** Путь относительно filesDir — так он хранится в БД (переживает смену абсолютного пути). */
+    fun relative(f: File): String = f.relativeTo(filesRoot).path
+    fun absolute(relative: String): File = File(filesRoot, relative)
     fun processed(docId: String, pageId: String): File = File(docs, "$docId/processed/$pageId.jpg")
     fun thumbnail(docId: String, pageId: String): File = File(docs, "$docId/thumbs/$pageId.webp")
     fun recipe(docId: String, pageId: String): File = File(docs, "$docId/recipe/$pageId.json")

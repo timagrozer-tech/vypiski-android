@@ -14,6 +14,8 @@ enum class ScanMode(val title: String, val aspectWOverH: Double?, val defaultFil
     CONTRACT("Договор", 210.0 / 297.0, FilterType.TEXT_BOOST),
     RECEIPT("Чек", null, FilterType.RECEIPT),
     BOOK("Книга", null, FilterType.BOOK),
+    TABLE("Таблица", null, FilterType.TEXT_BOOST),
+    DRAWING("Чертёж", null, FilterType.BW),
     CUSTOM("Произвольный документ", null, FilterType.COLOR),
 }
 

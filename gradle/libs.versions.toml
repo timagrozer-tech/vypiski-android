@@ -21,6 +21,7 @@ lifecycle = "2.11.0"
 navigation = "2.9.8"
 hiltNavigationCompose = "1.3.0"
 camerax = "1.6.1"
+cameraViewfinder = "1.6.1"
 
 # Прочее
 coroutines = "1.10.2"
@@ -71,6 +72,7 @@ androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 androidx-camera-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
+androidx-camera-viewfinder-compose = { module = "androidx.camera.viewfinder:viewfinder-compose", version.ref = "cameraViewfinder" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

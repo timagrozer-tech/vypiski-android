@@ -9,4 +9,5 @@ android {
 dependencies {
     implementation(project(":core:camera"))
     implementation(project(":core:storage"))
+    implementation(project(":core:intelligence"))
 }
