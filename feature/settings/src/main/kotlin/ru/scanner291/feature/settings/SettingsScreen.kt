@@ -102,7 +102,7 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(Space.s6))
             GlassCard(padding = Space.s1) {
-                SettingsRow(Icons.Rounded.Info, "О приложении", "Лицензии, офлайн-режим") { about = true }
+                SettingsRow(Icons.Rounded.Info, "О приложении", "Лицензии, офлайн-режим", onClick = { about = true })
             }
         }
     }
