@@ -198,6 +198,7 @@ private fun ColumnScope.CornersStep(state: ProcessingState.Ready, a: ProcessingA
     Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
         StatusLine(if (state.message != null && state.message.startsWith("Лист не найден")) Status.WARNING else Status.SUCCESS,
             state.message ?: sourceText(state.source))
+        state.quality?.let { q -> qualityLine(q)?.let { (st, text) -> StatusLine(st, text) } }
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
             ScanButton("Найти автоматически", a.onAuto, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.AutoFixHigh)
             ScanButton("Весь лист", a.onFull, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.CropFree)
@@ -411,4 +412,12 @@ private fun SavePresetRow(onSave: (String) -> Unit) {
         confirmButton = { TextButton({ onSave(name); name = ""; asking = false }) { Text("Сохранить") } },
         dismissButton = { TextButton({ asking = false }) { Text("Отмена") } },
     )
+}
+
+/** Строка Quality Gate: «Качество: хорошо» или первое замечание; сохранение не блокируется. Покрыто тестом. */
+fun qualityLine(q: ru.scanner291.core.quality.gate.QualityReport): Pair<Status, String>? = when (q.verdict) {
+    ru.scanner291.core.quality.gate.Verdict.GOOD -> Status.SUCCESS to "Качество снимка: хорошо"
+    ru.scanner291.core.quality.gate.Verdict.ACCEPTABLE -> Status.WARNING to "Качество допустимо: " + q.issues.first().message
+    ru.scanner291.core.quality.gate.Verdict.POOR -> Status.DANGER to "Качество плохое: " + q.issues.first { it.severity == ru.scanner291.core.quality.gate.Severity.ERROR }.message +
+        (if (q.issues.size > 1) " (ещё замечаний: ${q.issues.size - 1})" else "")
 }

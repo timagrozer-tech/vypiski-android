@@ -55,6 +55,8 @@ sealed interface ProcessingState {
         val rendering: Boolean = false,
         val previews: Map<FilterType, ImageBitmap> = emptyMap(),
         val userPresets: List<ru.scanner291.core.common.filters.Preset> = emptyList(),
+        /** Quality Gate (этап 16): совет, сохранение не блокирует. */
+        val quality: ru.scanner291.core.quality.gate.QualityReport? = null,
         val canUndo: Boolean = false,
         val canRedo: Boolean = false,
         val dirty: Boolean,
@@ -110,6 +112,21 @@ class ProcessingViewModel @Inject constructor(
                 recipe = recipe, step = step, userPresets = userPresets, dirty = false, message = null,
             )
             if (step == ProcessingStep.Enhance) { render(); renderPreviews() }
+            assessQuality()
+        }
+    }
+
+    /** Оценка снимка по углам (на копии ~800 px). Ошибки оценки не мешают работе экрана. */
+    private fun assessQuality() {
+        val s = _state.value as? ProcessingState.Ready ?: return
+        viewModelScope.launch {
+            val r = withContext(Dispatchers.Default) {
+                runCatching {
+                    val b = loader.load(s.page, 800) ?: return@runCatching null
+                    ru.scanner291.core.quality.gate.QualityGate.evaluate(grayOf(b), s.corners.takeIf { it != QuadTransforms.FULL })
+                }.getOrNull()
+            }
+            update { it.copy(quality = r) }
         }
     }
 
@@ -225,10 +242,19 @@ class ProcessingViewModel @Inject constructor(
             repo.setCorners(s.page.id, s.corners, s.source ?: CornersSource.MANUAL)
             repo.setRecipe(s.page.id, s.recipe)
             update { it.copy(dirty = false, message = "Сохранено. Оригинал не изменён") }
+            assessQuality()
         }
     }
 
     private fun update(f: (ProcessingState.Ready) -> ProcessingState.Ready) {
         (_state.value as? ProcessingState.Ready)?.let { _state.value = f(it) }
     }
+}
+
+/** Bitmap → серое изображение для Quality Gate. */
+fun grayOf(b: android.graphics.Bitmap): ru.scanner291.core.quality.gate.GrayImage {
+    val px = IntArray(b.width * b.height); b.getPixels(px, 0, b.width, 0, 0, b.width, b.height)
+    return ru.scanner291.core.quality.gate.GrayImage(b.width, b.height, ByteArray(px.size) { i ->
+        val c = px[i]; (((c shr 16 and 0xFF) * 299 + (c shr 8 and 0xFF) * 587 + (c and 0xFF) * 114) / 1000).toByte()
+    })
 }

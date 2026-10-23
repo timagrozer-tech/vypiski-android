@@ -3,6 +3,11 @@ package ru.scanner291.feature.scanner
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.scanner291.core.quality.gate.Check
+import ru.scanner291.core.quality.gate.Issue
+import ru.scanner291.core.quality.gate.QualityReport
+import ru.scanner291.core.quality.gate.Severity
+import ru.scanner291.core.quality.gate.Verdict
 import ru.scanner291.core.common.geometry.Pt
 import ru.scanner291.core.quality.capture.CaptureState
 
@@ -36,5 +41,14 @@ class ScannerLogicTest {
         val e = ru.scanner291.core.common.filters.Adjustments.SPECS.first { it.key == "e" }
         assertEquals("+1", adjustLabel(tw, 1f)); assertEquals("−1", adjustLabel(tw, -1f))
         assertEquals("+30", adjustLabel(e, 0.3f))
+    }
+
+    @Test fun qualityLines() {
+        val good = QualityReport(Verdict.GOOD, emptyList(), emptyMap())
+        assertEquals(ru.scanner291.designsystem.Status.SUCCESS, qualityLine(good)!!.first)
+        val warn = Issue(Check.SKEW, Severity.WARNING, 14.0, "Лист наклонён")
+        val err = Issue(Check.SHARPNESS, Severity.ERROR, 10.0, "Снимок размыт")
+        assertEquals("Качество плохое: Снимок размыт (ещё замечаний: 1)", qualityLine(QualityReport(Verdict.POOR, listOf(warn, err), emptyMap()))!!.second)
+        assertEquals("Качество допустимо: Лист наклонён", qualityLine(QualityReport(Verdict.ACCEPTABLE, listOf(warn), emptyMap()))!!.second)
     }
 }
