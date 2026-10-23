@@ -12,7 +12,7 @@ CameraX · OpenCV · Tesseract (rus+eng) · PdfBox-Android · Room · WorkManage
 
 ## Сборка
 ```bash
-./gradlew :core:domain:test          # быстрые тесты бизнес-логики
+./gradlew :core:common:test :core:intelligence:test :core:quality:test   # быстрые тесты логики
 ./gradlew :app:verifyNoNetwork       # офлайн-гарантии
 ./gradlew :app:assembleDebug         # APK: app/build/outputs/apk/debug/
 ```

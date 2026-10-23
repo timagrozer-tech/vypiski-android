@@ -11,7 +11,7 @@ android {
 }
 
 dependencies {
-    api(project(":core:domain"))
+    api(project(":core:common"))
     implementation(libs.tesseract4android)
     implementation(libs.kotlinx.coroutines.android)
 }

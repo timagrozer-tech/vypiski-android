@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.scanner291.android.application)
     alias(libs.plugins.scanner291.android.application.compose)
+    alias(libs.plugins.scanner291.hilt)
 }
 
 /**
@@ -82,13 +83,29 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:domain"))
+    implementation(project(":core:common"))
     implementation(project(":core:designsystem"))
-    implementation(project(":core:data"))
-    implementation(project(":core:imaging"))
+    implementation(project(":core:storage"))
+    implementation(project(":core:database"))
+    implementation(project(":core:security"))
+    implementation(project(":core:camera"))
+    implementation(project(":core:imageprocessing"))
+    implementation(project(":core:hybrid"))
     implementation(project(":core:ocr"))
     implementation(project(":core:pdf"))
-    implementation(project(":core:security"))
+    implementation(project(":core:intelligence"))
+    implementation(project(":core:quality"))
+    implementation(project(":core:batch"))
+    implementation(project(":core:performance"))
+    implementation(project(":feature:home"))
+    implementation(project(":feature:scanner"))
+    implementation(project(":feature:editor"))
+    implementation(project(":feature:documents"))
+    implementation(project(":feature:search"))
+    implementation(project(":feature:export"))
+    implementation(project(":feature:settings"))
+    implementation(project(":feature:batch"))
+    implementation(project(":feature:diagnostics"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

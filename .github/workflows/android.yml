@@ -36,8 +36,8 @@ jobs:
       - name: Структура проекта
         run: tools/ci/gradle.sh projects
 
-      - name: Unit-тесты доменной логики (ФИО, имена файлов, водяной знак, хранилище)
-        run: tools/ci/gradle.sh :core:domain:test
+      - name: Unit-тесты чистых JVM-модулей (ФИО, имена файлов, водяной знак, хранилище, качество)
+        run: tools/ci/gradle.sh :core:common:test :core:intelligence:test :core:quality:test
 
       - name: Проверка OCR-моделей (SHA-256)
         run: tools/ci/gradle.sh :core:ocr:verifyTessdata

@@ -11,38 +11,46 @@
 | Нет потери документов | Атомарная запись (temp → fsync → rename), журнал операций (WAL-подобный) с восстановлением при старте, корзина вместо удаления, Room в режиме WAL. |
 | Нет перезаписи | Все имена проходят через `UniqueNameResolver`; перезапись возможна только по явному подтверждению пользователя (флаг `OverwritePolicy.CONFIRMED`). |
 | Производительность | Изображения обрабатываются потоково постранично, ограниченные очереди (`Semaphore`/`limitedParallelism`), миниатюры отдельно, PDF пишется постранично с освобождением памяти. |
-| Проверяемость | Вся бизнес-логика без Android-зависимостей — в модуле `:core:domain` (чистый Kotlin/JVM), покрыта unit-тестами. |
+| Проверяемость | Вся бизнес-логика без Android-зависимостей — в чистых Kotlin/JVM-модулях `:core:common`, `:core:intelligence`, `:core:quality`, покрыта unit-тестами. |
 
-## 2. Модули
+## 2. Модули (ТЗ v3.0, ч. XX)
 
-```
-:app                 — Activity, навигация, экраны (Compose), ViewModel, DI (ручной контейнер)
-:core:designsystem   — тема Material 3 из токенов дизайн-системы, общие компоненты
-:core:domain         — ЧИСТЫЙ Kotlin/JVM: модели, ФИО, имена файлов, водяной знак (планировщик),
-                       геометрия четырёхугольника, автозатвор, метрики CER/WER, атомарная запись,
-                       журнал восстановления, пакетное именование
-:core:data           — Room (индекс, метаданные, OCR-текст FTS), файловое хранилище, корзина,
-                       репозитории, WorkManager-задачи
-:core:imaging        — OpenCV: поиск границ, перспектива, фильтры, тени, шум, блики, резкость
-:core:ocr            — Tesseract (rus+eng, модели в assets), постраничный OCR, hOCR-слова с bbox
-:core:pdf            — PdfBox-Android: создание с текстовым слоем, объединение, разделение,
-                       поворот, порядок, удаление, сжатие; рендер водяного знака; проверка целостности
-:core:security       — Android Keystore (AES-256-GCM), защищённое хранилище, биометрия,
-                       проверка URI и импортируемых файлов
-```
+Сборка: `build-logic` с convention-плагинами `scanner291.*` (по образцу Now in Android),
+версии — `gradle/libs.versions.toml` (ADR-0013). DI — Hilt (ADR-0014).
 
-Граф зависимостей (стрелка — «зависит от»):
+**Чистые Kotlin/JVM-модули** (без Android API, тесты без эмулятора, `tools/localtest/run.sh`):
 
-```
-app ──► designsystem
- │ ──► data ──► domain
- │ ──► imaging ──► domain
- │ ──► ocr ──► domain
- │ ──► pdf ──► domain
- └ ──► security ──► domain
-```
+| Модуль | Содержимое |
+|---|---|
+| `:core:common` | модели и рецепт правок, геометрия четырёхугольника и гомография, планировщик водяного знака, атомарная запись, неизменяемые оригиналы, журнал операций |
+| `:core:intelligence` | ФИО (падежи, инициалы, несколько лиц, уверенность), имена файлов и `(2)/(3)`, пакетное именование; далее — реквизиты документов |
+| `:core:quality` | метрики кадра и автозатвор; CER/WER; далее — Quality Gate |
+| `:core:testing` | общие помощники тестов |
 
-Модули `core:*` не зависят друг от друга, кроме `domain`. Связывает их `app` (use-case-оркестраторы в `app/.../pipeline`).
+**Android-библиотеки:**
+
+| Модуль | Назначение | Этап наполнения |
+|---|---|---|
+| `:core:designsystem` | токены и компоненты Liquid Glass | 3 |
+| `:core:storage` | раскладка файлов, восстановление при старте (Hilt), SAF, DataStore | 2 → 14 |
+| `:core:database` | Room: документы, страницы, теги, FTS OCR, журнал | 14 |
+| `:core:security` | Keystore, хранилище, биометрия, проверка URI | 19 |
+| `:core:camera` | CameraX | 5 |
+| `:core:imageprocessing` | OpenCV: границы, перспектива, базовые фильтры | 6–7, 9 |
+| `:core:hybrid` | HybridDocumentEnhancer (Hybrid HD Pro) | 8 |
+| `:core:ocr` | Tesseract, встроенные модели | 10 |
+| `:core:pdf` | PdfBox-Android, рендер водяного знака | 12–13 |
+| `:core:batch` | Smart Batch Engine (WorkManager + Hilt) | 15 |
+| `:core:performance` | Adaptive Performance | 20 |
+
+**Фичи** (`scanner291.android.feature` = Compose + Hilt + ViewModel + навигация):
+`home`, `scanner`, `editor`, `documents`, `search`, `export`, `settings`, `batch`, `diagnostics`.
+Модуль, у которого ещё нет кода, содержит только сборочный файл — экранов-заглушек нет.
+
+Граф (стрелка — «зависит от»): `app → feature:* → core:designsystem, core:common`;
+`core:intelligence, core:quality → core:common`; Android-модули `core:* → core:common`;
+`core:hybrid → core:imageprocessing`; `core:batch → core:storage`; `core:camera → core:quality`.
+Фичи друг от друга не зависят; циклов нет.
 
 ## 3. Слои внутри фич
 
@@ -123,8 +131,8 @@ CameraX ImageAnalysis (640px, YUV) ─► EdgeDetector ─► AutoCaptureStabili
 
 | Слой | Где проверяется |
 |---|---|
-| `:core:domain` | unit-тесты JVM — запускаются и в CI, и локально без Android SDK |
-| `:core:data` | Robolectric-free unit-тесты на in-memory Room — инструментальные тесты в CI-эмуляторе |
-| `:core:imaging`, `:core:ocr`, `:core:pdf` | инструментальные тесты на эмуляторе в CI с эталонными изображениями из `testdata/` |
+| `:core:common`, `:core:intelligence`, `:core:quality` | unit-тесты JVM — запускаются и в CI, и локально без Android SDK |
+| `:core:database` | Robolectric-free unit-тесты на in-memory Room — инструментальные тесты в CI-эмуляторе |
+| `:core:imageprocessing`, `:core:hybrid`, `:core:ocr`, `:core:pdf` | инструментальные тесты на эмуляторе в CI с эталонными изображениями из `testdata/` |
 | UI | Compose UI-тесты (эмулятор), ручной чек-лист `docs/QA_CHECKLIST.md` |
 | Офлайн | Gradle-задача `verifyNoNetwork` + тест, проверяющий отсутствие `INTERNET` в `PackageInfo` |

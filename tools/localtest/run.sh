@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Локальная компиляция и прогон тестов :core:domain без Gradle и без Android SDK.
+# Локальная компиляция и прогон тестов чистых JVM-модулей (:core:common, :core:intelligence,
+# :core:quality) без Gradle и без Android SDK.
 # Использует Kotlin-компилятор, встроенный в дистрибутив Gradle (GRADLE_HOME/lib).
 set -euo pipefail
 export LANG=C.UTF-8 LC_ALL=C.UTF-8
@@ -11,9 +12,15 @@ STD="$L/kotlin-stdlib-$KV.jar"
 OUT="${OUT:-$ROOT/build/localtest}"
 rm -rf "$OUT"; mkdir -p "$OUT/main" "$OUT/test"
 kc() { java -Dfile.encoding=UTF-8 -cp "$CP_COMPILER" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib -no-reflect -jvm-target 17 "$@"; }
-echo "[1/3] Компиляция core/domain/src/main (Kotlin $KV)"
-kc -cp "$STD" -d "$OUT/main" $(find "$ROOT/core/domain/src/main/kotlin" -name '*.kt')
+JVM_MODULES="common intelligence quality"
+MAIN_SRC=""; TEST_SRC=""
+for m in $JVM_MODULES; do
+  MAIN_SRC="$MAIN_SRC $(find "$ROOT/core/$m/src/main/kotlin" -name '*.kt')"
+  [ -d "$ROOT/core/$m/src/test/kotlin" ] && TEST_SRC="$TEST_SRC $(find "$ROOT/core/$m/src/test/kotlin" -name '*.kt')"
+done
+echo "[1/3] Компиляция main: $JVM_MODULES (Kotlin $KV)"
+kc -cp "$STD" -d "$OUT/main" $MAIN_SRC
 echo "[2/3] Компиляция тестов"
-kc -cp "$STD:$OUT/main" -d "$OUT/test" $(find "$ROOT/core/domain/src/test/kotlin" -name '*.kt') $(find "$ROOT/tools/localtest/src" -name '*.kt')
+kc -cp "$STD:$OUT/main" -d "$OUT/test" $TEST_SRC $(find "$ROOT/tools/localtest/src" -name '*.kt')
 echo "[3/3] Прогон тестов"
 java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp "$STD:$OUT/main:$OUT/test" LocalRunnerKt "$OUT/test"

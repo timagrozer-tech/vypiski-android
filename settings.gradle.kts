@@ -34,10 +34,31 @@ dependencyResolutionManagement {
 rootProject.name = "Scanner291"
 
 include(":app")
-include(":core:domain")
+
+// core — инфраструктура и логика (ТЗ v3.0, ч. XX). Чистые JVM-модули: common, intelligence, quality, testing.
+include(":core:common")
 include(":core:designsystem")
-include(":core:data")
-include(":core:imaging")
+include(":core:database")
+include(":core:storage")
+include(":core:security")
+include(":core:camera")
+include(":core:imageprocessing")
+include(":core:hybrid")
 include(":core:ocr")
 include(":core:pdf")
-include(":core:security")
+include(":core:intelligence")
+include(":core:batch")
+include(":core:performance")
+include(":core:quality")
+include(":core:testing")
+
+// feature — экраны и сценарии
+include(":feature:home")
+include(":feature:scanner")
+include(":feature:editor")
+include(":feature:documents")
+include(":feature:search")
+include(":feature:export")
+include(":feature:settings")
+include(":feature:batch")
+include(":feature:diagnostics")

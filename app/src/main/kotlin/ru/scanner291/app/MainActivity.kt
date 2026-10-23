@@ -19,24 +19,30 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dagger.hilt.android.AndroidEntryPoint
+import ru.scanner291.core.storage.StartupRecovery
 import ru.scanner291.designsystem.GlassCard
 import ru.scanner291.designsystem.ScannerTheme
 import ru.scanner291.designsystem.ScreenBox
 import ru.scanner291.designsystem.ThemeMode
+import javax.inject.Inject
 
 /**
- * Этап 1: единственная Activity (Compose). Навигация по 12 экранам добавляется на этапе 2;
+ * Единственная Activity (Compose). Навигация по 13 экранам — этап 4 (ТЗ v3.0);
  * сейчас экран честно сообщает, что это каркас, и не показывает неработающих кнопок.
+ * SplashScreen не удерживается: первый кадр рисуется сразу.
  */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var startupRecovery: StartupRecovery
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val container = (application as Scanner291App).container
         setContent {
             ScannerTheme(mode = ThemeMode.SYSTEM) {
-                val recovered by container.recoveredOps.collectAsStateWithLifecycle()
+                val recovered by startupRecovery.recoveredOps.collectAsStateWithLifecycle()
                 StageOneScreen(recovered)
             }
         }
