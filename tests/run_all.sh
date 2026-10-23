@@ -55,6 +55,7 @@ run "Групповые пункты: только своя строка"  pytho
 run "Выписки по списку: выбор событий, просмотр, фильтры" python3 "$HERE/e2e/list_preview.py" "$PAGE"
 run "Поиск «Текст приказов» по эскизу"      python3 "$HERE/e2e/search_text_table.py" "$PAGE"
 run "Телефон: кнопки файлов, поиск с главной, клавиатура" python3 "$HERE/e2e/phone_comfort.py" "$PAGE"
+run "Сборка выписок: структуры приказов"     python3 "$HERE/e2e/excerpt_assembly.py" "$PAGE"
 run "Живые папки Windows (без Electron)"    node "$HERE/unit/sources.test.cjs"
 if [ -n "${VYP_ELECTRON_DIR:-}" ]; then
   D="$WORK/desktop"; cp -r "$HERE/../desktop" "$D"; mkdir -p "$D/app"; cp "$PAGE/index.html" "$D/app/index.html"

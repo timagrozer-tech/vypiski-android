@@ -62,7 +62,8 @@ async def main():
     n=await pg.evaluate("()=>document.querySelectorAll('#wz input[type=checkbox]:checked').length");check('Отмечены ровно абзацы образца',n==4,n)
     # go to preview and check composed text = sample, certify present, no order signatures
     for _ in range(2):
-        for cb in await pg.locator('#wz .wz-check input:not(:checked)').all():await cb.check()
+        for cb in await pg.locator('#wz .wz-check input:not(:checked):not([disabled])').all():
+          if await cb.is_visible() and await cb.is_enabled():await cb.check()
         nb=pg.locator('#wz .wz-next')
         if await nb.count() and await nb.first.is_enabled():await nb.first.click();await pg.wait_for_timeout(800)
     await pg.wait_for_timeout(1500);W=await pg.evaluate("()=>document.querySelector('#wz').innerText+' '+[...document.querySelectorAll('#wz iframe')].map(f=>f.contentDocument?.body?.innerText||'').join(' ')")
