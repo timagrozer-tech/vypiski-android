@@ -181,7 +181,7 @@ fun CameraScreen(
                     }
                     Spacer(Modifier.weight(1f))
                     if (controller != null && controller.hasFlash) {
-                        IconButton(onClick = { controller.setFlash(controller.flash.next()) }) {
+                        IconButton(onClick = { controller.changeFlash(controller.flash.next()) }) {
                             Icon(flashIcon(controller.flash), contentDescription = "Вспышка: ${controller.flash.label}", tint = Color.White)
                         }
                     }

@@ -102,7 +102,7 @@ class CameraController internal constructor(
         }
     }
 
-    fun setFlash(mode: FlashMode) {
+    fun changeFlash(mode: FlashMode) {
         flash = mode
         capture.flashMode = when (mode) {
             FlashMode.Off, FlashMode.Torch -> ImageCapture.FLASH_MODE_OFF
