@@ -1,11 +1,9 @@
 import com.android.build.api.artifact.SingleArtifact
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.scanner291.android.application)
+    alias(libs.plugins.scanner291.android.application.compose)
 }
 
 /**
@@ -25,16 +23,11 @@ val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exist
 
 android {
     namespace = "ru.scanner291.app"
-    compileSdk = 36
 
     defaultConfig {
         applicationId = "ru.scanner291"
-        minSdk = 29
-        targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-stage1"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables { useSupportLibrary = true }
+        versionCode = 2
+        versionName = "0.2.0-stage2"
     }
 
     signingConfigs {
@@ -74,12 +67,7 @@ android {
         }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
     buildFeatures {
-        compose = true
         buildConfig = true
     }
     packaging {
@@ -91,10 +79,6 @@ android {
         // Отсутствие INTERNET — требование ТЗ, а не ошибка.
         disable += setOf("MissingPermission")
     }
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 dependencies {
@@ -117,7 +101,6 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

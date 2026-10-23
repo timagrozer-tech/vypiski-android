@@ -62,6 +62,26 @@ jobs:
           # Размеры и суммы — в сводку запуска (видны без скачивания артефакта)
           for f in *.apk; do echo "::notice title=APK $f::$(du -h "$f" | cut -f1) sha256=$(sha256sum "$f" | cut -c1-64)"; done
 
+      - name: Выравнивание нативных библиотек под страницы 16 КБ (Android 15+)
+        shell: bash
+        run: |
+          ZA=$(ls "$ANDROID_HOME"/build-tools/*/zipalign | sort -V | tail -1)
+          for f in app/build/outputs/apk/debug/*.apk; do
+            if "$ZA" -c -P 16 -v 4 "$f" > za.txt 2>&1; then
+              echo "::notice title=16 KB $(basename "$f")::OK — все .so выровнены"
+            else
+              bad=$(grep -E '\.so' za.txt | grep -v 'OK' | sed 's/^ *//' | head -20 | tr '\n' ';')
+              echo "::warning title=16 KB $(basename "$f")::Не выровнено: $bad"
+            fi
+          done
+          # ELF-сегменты: максимальное выравнивание LOAD должно быть >= 2**14
+          mkdir -p so && unzip -q -o app/build/outputs/apk/debug/app-arm64-v8a-debug.apk 'lib/*' -d so || true
+          for so in so/lib/arm64-v8a/*.so; do
+            al=$(readelf -lW "$so" | awk '/LOAD/{print $NF; exit}')
+            echo "$(basename "$so") $al"
+          done | tee elf.txt
+          echo "::notice title=ELF LOAD align (arm64)::$(tr '\n' ';' < elf.txt)"
+
       - name: Артефакт Debug APK
         uses: actions/upload-artifact@v4
         with:
