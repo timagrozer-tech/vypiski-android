@@ -10,6 +10,8 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:quality"))
     api(libs.androidx.camera.core)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.compose)
