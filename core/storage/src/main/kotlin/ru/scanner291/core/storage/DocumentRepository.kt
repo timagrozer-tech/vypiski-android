@@ -76,6 +76,13 @@ class DocumentRepository @Inject constructor(
             dao.setRecipe(pageId, recipe?.let { ru.scanner291.core.common.render.RecipeCodec.encode(it) })
         }
 
+    /** Переименование документа (только по действию пользователя). Пустое название не принимается. */
+    suspend fun rename(docId: String, title: String) = withContext(Dispatchers.IO) {
+        val t = title.trim().take(120)
+        require(t.isNotEmpty()) { "Название не может быть пустым" }
+        dao.rename(docId, t, System.currentTimeMillis())
+    }
+
     // ── Текстовый слой и поиск (этап 10) ──
     fun observeTexts(docId: String) = dao.observeTexts(docId)
     suspend fun text(pageId: String) = dao.text(pageId)

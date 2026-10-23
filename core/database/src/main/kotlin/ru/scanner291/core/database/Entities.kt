@@ -95,12 +95,13 @@ data class PageTextEntity(
 )
 
 /** Полнотекстовый индекс (FTS4, unicode61 — регистр кириллицы не важен). Хранит копию текста страницы. */
-@androidx.room.Fts4(tokenizer = androidx.room.FtsOptions.TOKENIZER_UNICODE61, notIndexed = ["pageId", "docId"])
+@androidx.room.Fts4(tokenizer = androidx.room.FtsOptions.TOKENIZER_UNICODE61, notIndexed = ["pageId", "documentId"])
 @Entity(tableName = "page_text_fts")
 data class PageTextFts(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "rowid") val rowId: Int = 0,
     val pageId: String,
-    val docId: String,
+    /** Не «docId»: в FTS4 это служебный синоним rowid (таблица не создаётся — проверено на SQLite 3.45). */
+    val documentId: String,
     val text: String,
 )
 

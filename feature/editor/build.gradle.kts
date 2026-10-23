@@ -8,4 +8,5 @@ android {
 dependencies {
     implementation(project(":core:storage"))
     implementation(project(":core:ocr"))
+    implementation(project(":core:intelligence"))
 }

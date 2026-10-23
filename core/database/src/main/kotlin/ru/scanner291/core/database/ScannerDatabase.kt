@@ -32,7 +32,7 @@ abstract class ScannerDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `page_text` (`pageId` TEXT NOT NULL, `docId` TEXT NOT NULL, `text` TEXT NOT NULL, `words` TEXT NOT NULL, `mode` TEXT NOT NULL, `recipeKey` TEXT NOT NULL, `edited` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, PRIMARY KEY(`pageId`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_page_text_docId` ON `page_text` (`docId`)")
-                db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `page_text_fts` USING FTS4(`pageId` TEXT NOT NULL, `docId` TEXT NOT NULL, `text` TEXT NOT NULL, tokenize=unicode61, notindexed=`pageId`, notindexed=`docId`)")
+                db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `page_text_fts` USING FTS4(`pageId` TEXT NOT NULL, `documentId` TEXT NOT NULL, `text` TEXT NOT NULL, tokenize=unicode61, notindexed=`pageId`, notindexed=`documentId`)")
             }
         }
         val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)

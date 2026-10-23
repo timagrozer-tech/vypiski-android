@@ -18,3 +18,23 @@ class OcrLogicTest {
         assertEquals("Не распознана", statusText(OcrPageUi(page, 0, null, TextStatus.NONE)))
     }
 }
+
+class FactsLogicTest {
+    private val rows = listOf(
+        FactRow("type", "Тип", "Рапорт", "РАПОРТ", 0.95),
+        FactRow("number", "Номер", "№ 12", "№ 12 от 10.01.2026", 0.9),
+        FactRow("date", "Дата", "10.01.2026", "№ 12 от 10.01.2026", 0.9),
+    )
+
+    @org.junit.Test fun nameOnlyFromConfirmedFields() {
+        assertEquals(null, nameFromConfirmed(rows, emptySet(), "Волков И.И."))
+        assertEquals("Рапорт Волков И.И. 10.01.2026", nameFromConfirmed(rows, setOf("type", "date"), "Волков И.И."))
+        assertEquals("Рапорт № 12 от 10.01.2026", nameFromConfirmed(rows, setOf("type", "number", "date"), null))
+    }
+
+    @org.junit.Test fun rowsFromAnalyzer() {
+        val f = ru.scanner291.core.intelligence.doc.DocumentAnalyzer().analyze("СПРАВКА\n№ 926 от 17.09.2022\nв/ч 65384", java.time.LocalDate.of(2026, 1, 1))
+        assertEquals(listOf("type", "number", "date", "org"), factRows(f).map { it.key }.take(4))
+        assertEquals("17.09.2022", factRows(f).first { it.key == "date" }.value)
+    }
+}

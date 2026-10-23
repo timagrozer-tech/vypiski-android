@@ -43,6 +43,9 @@ interface DocumentDao {
     @Query("UPDATE documents SET updatedAt = :at WHERE id = :id")
     suspend fun touch(id: String, at: Long)
 
+    @Query("UPDATE documents SET title = :title, updatedAt = :at WHERE id = :id")
+    suspend fun rename(id: String, title: String, at: Long)
+
     @Query("UPDATE pages SET corners = :corners, cornersSource = :source WHERE id = :pageId")
     suspend fun setCorners(pageId: String, corners: String?, source: String?)
 
@@ -77,7 +80,7 @@ interface DocumentDao {
     suspend fun saveText(t: PageTextEntity) {
         upsertText(t)
         deleteFts(t.pageId)
-        insertFts(PageTextFts(pageId = t.pageId, docId = t.docId, text = t.text))
+        insertFts(PageTextFts(pageId = t.pageId, documentId = t.docId, text = t.text))
     }
 
     @Query("SELECT * FROM page_text WHERE docId = :docId")
@@ -91,7 +94,7 @@ interface DocumentDao {
      * (удалённые в корзину не находятся). Фрагмент — до 12 слов вокруг совпадения.
      */
     @Query(
-        "SELECT f.pageId AS pageId, f.docId AS docId, snippet(page_text_fts, '[', ']', '…', 2, 12) AS snippet " +
+        "SELECT f.pageId AS pageId, f.documentId AS docId, snippet(page_text_fts, '[', ']', '…', 2, 12) AS snippet " +
             "FROM page_text_fts f JOIN pages p ON p.id = f.pageId WHERE page_text_fts MATCH :match LIMIT 200",
     )
     suspend fun searchText(match: String): List<TextHit>
