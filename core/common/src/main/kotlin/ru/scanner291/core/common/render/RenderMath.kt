@@ -2,6 +2,7 @@ package ru.scanner291.core.common.render
 
 import ru.scanner291.core.common.geometry.Quad
 import ru.scanner291.core.common.model.FilterType
+import ru.scanner291.core.common.model.HybridProfile
 import ru.scanner291.core.common.model.PageRecipe
 import ru.scanner291.core.common.model.ScanMode
 import java.util.Locale
@@ -91,7 +92,7 @@ object RenderParams {
 }
 
 /** Что делает фильтр: цвет, выравнивание освещения, шумоподавление. Одно место правды для рендера и экрана. */
-fun FilterType.keepsColor(): Boolean = this == FilterType.COLOR || this == FilterType.PHOTO || this == FilterType.BOOK || this == FilterType.ORIGINAL
+fun FilterType.keepsColor(): Boolean = this == FilterType.COLOR || this == FilterType.PHOTO || this == FilterType.BOOK || this == FilterType.ORIGINAL || this == FilterType.HYBRID
 fun FilterType.usesShadowRemoval(): Boolean = this != FilterType.ORIGINAL && this != FilterType.PHOTO
 fun FilterType.usesDenoise(): Boolean = this != FilterType.ORIGINAL && this != FilterType.PHOTO
 
@@ -102,7 +103,9 @@ fun FilterType.usesDenoise(): Boolean = this != FilterType.ORIGINAL && this != F
 object RecipeCodec {
     fun encode(r: PageRecipe): String {
         val n = r.normalized()
-        return "v1;f=${n.filter.name};r=${n.rotation};b=${fmt(n.brightness)};c=${fmt(n.contrast)};s=${if (n.removeShadows) 1 else 0};n=${if (n.denoise) 1 else 0}"
+        val base = "v1;f=${n.filter.name};r=${n.rotation};b=${fmt(n.brightness)};c=${fmt(n.contrast)};s=${if (n.removeShadows) 1 else 0};n=${if (n.denoise) 1 else 0}"
+        // h= пишется только для Hybrid: строки рецептов этапа 7 остаются прежними.
+        return if (n.filter == FilterType.HYBRID) "$base;h=${n.hybrid.name}" else base
     }
 
     /** null или повреждённая строка → null (используется рецепт по умолчанию для режима). */
@@ -120,6 +123,7 @@ object RecipeCodec {
                 contrast = m.getValue("c").toFloat(),
                 removeShadows = m.getValue("s") == "1",
                 denoise = m.getValue("n") == "1",
+                hybrid = m["h"]?.let { HybridProfile.valueOf(it) } ?: HybridProfile.DOCUMENT,
             ).normalized().rotatedBy(0)
         }.getOrNull()
     }

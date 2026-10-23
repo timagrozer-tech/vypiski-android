@@ -18,6 +18,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.max
 
+/** Декодирование файла изображения с уменьшением в [sample] раз (степень двойки). */
+fun interface PageDecoder { fun decode(file: File, sample: Int): Bitmap? }
+
 /**
  * Уменьшенные изображения страниц для экрана (миниатюры, просмотр). Оригинал только читается.
  * Декодирование с уменьшением (`inSampleSize`) — полноразмерный снимок не попадает в память целиком;
@@ -25,7 +28,7 @@ import kotlin.math.max
  * процесса) и не больше двух декодирований одновременно.
  */
 @Singleton
-class PageImageLoader @Inject constructor(private val paths: DocumentPaths) {
+class PageImageLoader @Inject constructor(private val paths: DocumentPaths, private val decoder: PageDecoder) {
     private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 8).toInt()) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
@@ -48,7 +51,7 @@ class PageImageLoader @Inject constructor(private val paths: DocumentPaths) {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, bounds)
         val sample = sampleSize(bounds.outWidth, bounds.outHeight, maxSide)
-        val bmp = BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })
+        val bmp = decoder.decode(f, sample)
             // Запасной путь: ImageDecoder (сам поворачивает по EXIF) — для файлов, которые не открыл BitmapFactory.
             ?: return runCatching {
                 android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(f)) { d, info, _ ->

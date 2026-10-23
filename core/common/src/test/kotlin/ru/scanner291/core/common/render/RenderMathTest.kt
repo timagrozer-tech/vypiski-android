@@ -82,4 +82,18 @@ class RenderMathTest {
         assertTrue(FilterType.TEXT_BOOST.usesShadowRemoval()); assertFalse(FilterType.BW.keepsColor())
         assertTrue(FilterType.BOOK.keepsColor())
     }
+
+    @Test fun hybridRecipeAndProfiles() {
+        val r = PageRecipe(filter = FilterType.HYBRID, hybrid = ru.scanner291.core.common.model.HybridProfile.CONTRAST)
+        val s = RecipeCodec.encode(r)
+        assertTrue(s.endsWith(";h=CONTRAST"))
+        assertEquals(r, RecipeCodec.decode(s))
+        // Рецепт этапа 7 без h= читается, профиль по умолчанию
+        assertEquals(ru.scanner291.core.common.model.HybridProfile.DOCUMENT, RecipeCodec.decode("v1;f=HYBRID;r=0;b=0.00;c=1.00;s=1;n=1")!!.hybrid)
+        // Для других фильтров строка не меняется
+        assertFalse(RecipeCodec.encode(PageRecipe(filter = FilterType.BW)).contains("h="))
+        assertEquals(FilterType.HYBRID, RecipeCodec.default(ScanMode.ORDER).filter)
+        assertEquals(3, ru.scanner291.core.common.model.HybridProfile.entries.size)
+        assertTrue(FilterType.HYBRID.keepsColor() && FilterType.HYBRID.usesShadowRemoval())
+    }
 }

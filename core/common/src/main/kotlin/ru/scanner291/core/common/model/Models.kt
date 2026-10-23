@@ -8,10 +8,10 @@ enum class ScanMode(val title: String, val aspectWOverH: Double?, val defaultFil
     A5("Документ A5", 148.0 / 210.0, FilterType.TEXT_BOOST),
     PASSPORT("Паспорт", 125.0 / 176.0, FilterType.COLOR),
     ID_CARD("Удостоверение", 85.6 / 54.0, FilterType.COLOR),
-    CERTIFICATE("Справка", 210.0 / 297.0, FilterType.TEXT_BOOST),
-    ORDER("Приказ", 210.0 / 297.0, FilterType.TEXT_BOOST),
-    REPORT("Рапорт", 210.0 / 297.0, FilterType.TEXT_BOOST),
-    CONTRACT("Договор", 210.0 / 297.0, FilterType.TEXT_BOOST),
+    CERTIFICATE("Справка", 210.0 / 297.0, FilterType.HYBRID),
+    ORDER("Приказ", 210.0 / 297.0, FilterType.HYBRID),
+    REPORT("Рапорт", 210.0 / 297.0, FilterType.HYBRID),
+    CONTRACT("Договор", 210.0 / 297.0, FilterType.HYBRID),
     RECEIPT("Чек", null, FilterType.RECEIPT),
     BOOK("Книга", null, FilterType.BOOK),
     TABLE("Таблица", null, FilterType.TEXT_BOOST),
@@ -28,6 +28,38 @@ enum class FilterType(val title: String) {
     PHOTO("Фото"),
     RECEIPT("Чек"),
     BOOK("Книга"),
+    /** Hybrid HD Pro (этап 8): текст чёрный, фон белый, печати и подписи — в своём цвете. */
+    HYBRID("Hybrid HD"),
+}
+
+/**
+ * Профиль Hybrid HD Pro — 10 параметров. Значения подобраны и измерены в tools/processing-lab
+ * (lab_hybrid.py, README): печати и подписи сохраняются ≥ 0,98 даже в худшем случае.
+ */
+enum class HybridProfile(
+    val title: String,
+    val shadows: Boolean,
+    val denoise: Boolean,
+    /** Гамма текста (больше — темнее). */
+    val textGamma: Double,
+    /** Сила нерезкой маски для текста. */
+    val sharpen: Double,
+    /** Доля яркости, выше которой фон становится чисто белым. */
+    val bgWhite: Double,
+    /** Минимальная насыщенность (0..255) цветных чернил — печать, подпись. */
+    val satMin: Int,
+    /** Максимальная яркость (0..255) цветных чернил: светлее — это бумага. */
+    val inkVMax: Int,
+    /** Усиление насыщенности цветных чернил. */
+    val colorBoost: Double,
+    /** Расширение маски цветных чернил, px (захват сглаженного края). */
+    val maskGrow: Int,
+    /** Текст строго чёрно-белый (с мягким краем). */
+    val textBw: Boolean,
+) {
+    DOCUMENT("Документ", true, true, 1.8, 0.5, 0.92, 60, 235, 1.25, 2, false),
+    CONTRAST("Контраст", true, true, 2.4, 0.7, 0.88, 60, 235, 1.4, 2, true),
+    SOFT("Мягкий", true, true, 1.3, 0.3, 0.95, 60, 235, 1.1, 1, false),
 }
 
 /** Профиль качества экспорта PDF/изображений. */
@@ -66,6 +98,8 @@ data class PageRecipe(
     val contrast: Float = 1f,
     val removeShadows: Boolean = true,
     val denoise: Boolean = true,
+    /** Профиль Hybrid HD Pro (используется при filter = HYBRID). */
+    val hybrid: HybridProfile = HybridProfile.DOCUMENT,
     val annotations: List<Annotation> = emptyList(),
     /** Закрашенные (скрытые) области: вырезаются из изображения И из текстового слоя. */
     val redactions: List<NRect> = emptyList(),

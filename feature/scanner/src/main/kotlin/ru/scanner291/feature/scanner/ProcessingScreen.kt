@@ -101,6 +101,7 @@ data class ProcessingActions(
     val onUndo: () -> Unit = {},
     val onRedo: () -> Unit = {},
     val onBack: () -> Unit = {},
+    val onHybrid: (ru.scanner291.core.common.model.HybridProfile) -> Unit = {},
 )
 
 @Composable
@@ -110,7 +111,7 @@ internal fun ProcessingRouteScreen(onBack: () -> Unit, vm: ProcessingViewModel =
         state,
         ProcessingActions(
             vm::move, vm::autoDetect, vm::fullPage, vm::save, vm::open, vm::selectStep, vm::setFilter, vm::rotate,
-            vm::setShadows, vm::setDenoise, vm::setBrightness, vm::setContrast, vm::reset, vm::undo, vm::redo, onBack,
+            vm::setShadows, vm::setDenoise, vm::setBrightness, vm::setContrast, vm::reset, vm::undo, vm::redo, onBack, vm::setHybrid,
         ),
     )
 }
@@ -223,6 +224,12 @@ private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingA
             Spacer(Modifier.weight(1f))
             IconButton(onClick = a.onUndo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Отменить") }
             IconButton(onClick = a.onRedo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Повторить") }
+        }
+        if (r.filter == FilterType.HYBRID) {
+            ScanSegmented(ru.scanner291.core.common.model.HybridProfile.entries, r.hybrid, { it.title }, a.onHybrid,
+                Modifier.padding(horizontal = Space.s4, vertical = Space.s1))
+            Text("Текст — чёрный, фон — белый, печати и подписи — в своём цвете", style = Type.caption, color = c.textSecondary,
+                modifier = Modifier.padding(horizontal = Space.s4))
         }
         filterNote(r.filter)?.let { Text(it, style = Type.caption, color = c.textSecondary, modifier = Modifier.padding(horizontal = Space.s4)) }
         ToggleRow("Убрать тени", r.removeShadows, a.onShadows, description = "Выравнивает освещение листа",

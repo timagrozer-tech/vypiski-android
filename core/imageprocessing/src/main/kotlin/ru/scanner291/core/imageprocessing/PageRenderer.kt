@@ -13,6 +13,7 @@ import org.opencv.imgproc.Imgproc
 import ru.scanner291.core.common.geometry.Quad
 import ru.scanner291.core.common.geometry.QuadTransforms
 import ru.scanner291.core.common.model.FilterType
+import ru.scanner291.core.common.model.HybridProfile
 import ru.scanner291.core.common.model.PageRecipe
 import ru.scanner291.core.common.render.RenderMath
 import ru.scanner291.core.common.render.RenderParams
@@ -66,9 +67,11 @@ object PageRenderer {
             }
             if (!f.keepsColor()) img = Mat().track().also { Imgproc.cvtColor(img, it, Imgproc.COLOR_RGB2GRAY) }
             // 3. Шум (гаусс 3×3: лучше медианы сохраняет тонкие штрихи — см. лабораторию)
-            if (r.denoise && f.usesDenoise()) Imgproc.GaussianBlur(img, img, Size(3.0, 3.0), 0.0)
+            val hp = r.hybrid
+            val hybrid = f == FilterType.HYBRID
+            if (r.denoise && f.usesDenoise() && (!hybrid || hp.denoise)) Imgproc.GaussianBlur(img, img, Size(3.0, 3.0), 0.0)
             // 4. Тени / неравномерное освещение — деление на оценку фона, по каждому каналу
-            if (r.removeShadows && f.usesShadowRemoval()) removeShadows(img)
+            if (r.removeShadows && f.usesShadowRemoval() && (!hybrid || hp.shadows)) removeShadows(img)
             // 5. Фильтр
             when (f) {
                 FilterType.PHOTO -> clahe(img)
@@ -90,6 +93,7 @@ object PageRenderer {
                     Imgproc.adaptiveThreshold(img, img, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, block, c)
                     return toBitmap(img, mats)
                 }
+                FilterType.HYBRID -> img = hybrid(img, hp).track()
                 FilterType.ORIGINAL -> Unit
             }
             // 6. Яркость и контраст пользователя
@@ -97,6 +101,63 @@ object PageRenderer {
             return toBitmap(img, mats)
         } finally {
             mats.forEach { it.release() }
+        }
+    }
+
+    /**
+     * Hybrid HD Pro (этап 8): маски «цветные чернила» (печать, подпись — по насыщенности) и «текст»
+     * (адаптивный порог); текст — тёмный и резкий, фон — белый, цветные чернила — в своём цвете с усилением
+     * насыщенности. Только детерминированные фильтры: ничего не дорисовывается.
+     */
+    private fun hybrid(rgb: Mat, p: HybridProfile): Mat {
+        val tmp = ArrayList<Mat>()
+        fun Mat.t() = also { tmp += it }
+        try {
+            // Маска цветных чернил
+            val hsv = Mat().t(); Imgproc.cvtColor(rgb, hsv, Imgproc.COLOR_RGB2HSV)
+            val color = Mat().t()
+            Core.inRange(hsv, Scalar(0.0, p.satMin.toDouble(), 0.0), Scalar(180.0, 255.0, p.inkVMax.toDouble()), color)
+            val k2 = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0)).t()
+            Imgproc.morphologyEx(color, color, Imgproc.MORPH_OPEN, k2)
+            if (p.maskGrow > 0) {
+                val s = 2.0 * p.maskGrow + 1
+                Imgproc.dilate(color, color, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(s, s)).t())
+            }
+            // Маска текста (без цветных чернил)
+            val gray = Mat().t(); Imgproc.cvtColor(rgb, gray, Imgproc.COLOR_RGB2GRAY)
+            val text = Mat().t()
+            val block = RenderMath.odd(max(gray.cols(), gray.rows()) / 40.0).coerceAtLeast(3)
+            Imgproc.adaptiveThreshold(gray, text, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, block, RenderParams.BW_C)
+            Imgproc.dilate(text, text, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0)).t())
+            text.setTo(Scalar(0.0), color)
+            // Слои
+            applyLut(gray, RenderMath.levelsLut(hist(gray)))
+            val t = Mat().t()
+            if (p.textBw) {
+                Imgproc.threshold(gray, t, 159.0, 255.0, Imgproc.THRESH_BINARY)
+                Imgproc.GaussianBlur(t, t, Size(3.0, 3.0), 0.0)
+            } else {
+                gray.copyTo(t)
+                applyLut(t, RenderMath.gammaLut(p.textGamma))
+                val b = Mat().t(); Imgproc.GaussianBlur(t, b, Size(0.0, 0.0), RenderParams.UNSHARP_SIGMA)
+                Core.addWeighted(t, 1 + p.sharpen, b, -p.sharpen, 0.0, t)
+            }
+            // Фон: светлее порога — белый
+            val bgMask = Mat().t()
+            Imgproc.threshold(gray, bgMask, 255.0 * p.bgWhite - 1, 255.0, Imgproc.THRESH_BINARY)
+            gray.setTo(Scalar(255.0), bgMask)
+            val out = Mat(); Imgproc.cvtColor(gray, out, Imgproc.COLOR_GRAY2RGB)
+            val tRgb = Mat().t(); Imgproc.cvtColor(t, tRgb, Imgproc.COLOR_GRAY2RGB)
+            tRgb.copyTo(out, text)
+            // Цветные чернила в своём цвете, насыщеннее
+            val ch = ArrayList<Mat>(); Core.split(hsv, ch); tmp += ch
+            ch[1].convertTo(ch[1], -1, p.colorBoost, 0.0)
+            Core.merge(ch, hsv)
+            val ci = Mat().t(); Imgproc.cvtColor(hsv, ci, Imgproc.COLOR_HSV2RGB)
+            ci.copyTo(out, color)
+            return out
+        } finally {
+            tmp.forEach { it.release() }
         }
     }
 

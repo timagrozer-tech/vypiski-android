@@ -130,6 +130,7 @@ class ProcessingViewModel @Inject constructor(
     // ── Улучшение ──
     fun setFilter(f: FilterType) = edit { it.copy(filter = f) }
     fun rotate(deg: Int) = edit { it.rotatedBy(deg) }
+    fun setHybrid(p: ru.scanner291.core.common.model.HybridProfile) = edit { it.copy(hybrid = p) }
     fun setShadows(on: Boolean) = edit { it.copy(removeShadows = on) }
     fun setDenoise(on: Boolean) = edit { it.copy(denoise = on) }
     /**

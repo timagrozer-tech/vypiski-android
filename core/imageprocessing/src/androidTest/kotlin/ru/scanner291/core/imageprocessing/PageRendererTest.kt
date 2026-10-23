@@ -15,6 +15,7 @@ import org.junit.runner.RunWith
 import ru.scanner291.core.common.geometry.Pt
 import ru.scanner291.core.common.geometry.Quad
 import ru.scanner291.core.common.model.FilterType
+import ru.scanner291.core.common.model.HybridProfile
 import ru.scanner291.core.common.model.PageRecipe
 import kotlin.math.sqrt
 
@@ -80,6 +81,29 @@ class PageRendererTest {
                 val vals = (0 until 2000).map { gray(out!!.getPixel((it * 37) % w, (it * 53) % h)) }.toSet()
                 assertTrue("$f: только чёрный и белый, а есть $vals", vals.all { it == 0 || it == 255 })
             }
+        }
+    }
+
+    /** Этап 8: печать (синие чернила поверх текста) сохраняется в Hybrid ≥ 95 %, фон белый, текст тёмный. */
+    @Test fun hybridKeepsStampColorAndWhitensBackground() {
+        val src = scene()
+        val c = Canvas(src)
+        val stamp = Paint().apply { color = Color.rgb(40, 60, 170); style = Paint.Style.STROKE; strokeWidth = 6f; isAntiAlias = true }
+        c.drawCircle(600f, 800f, 90f, stamp)
+        for (p in HybridProfile.entries) {
+            val out = PageRenderer.render(src, PageRecipe(filter = FilterType.HYBRID, hybrid = p))!!
+            var ring = 0; var blue = 0
+            for (a in 0 until 360 step 3) {
+                val rad = Math.toRadians(a.toDouble())
+                val x = (600 + 90 * Math.cos(rad)).toInt(); val y = (800 + 90 * Math.sin(rad)).toInt()
+                ring++
+                val px = out.getPixel(x, y)
+                if (Color.blue(px) > Color.red(px) + 40 && Color.blue(px) > Color.green(px) + 20) blue++
+            }
+            val share = blue.toDouble() / ring
+            android.util.Log.i("PageRenderer", "Hybrid $p: печать сохранена ${"%.3f".format(share)}")
+            assertTrue("Hybrid $p: печать сохранена на $share", share >= 0.95)
+            assertTrue("Hybrid $p: фон белый", gray(out.getPixel(450, 160)) >= 250)
         }
     }
 }
