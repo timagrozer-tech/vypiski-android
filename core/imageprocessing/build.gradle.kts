@@ -11,4 +11,11 @@ dependencies {
     implementation(libs.opencv)
     implementation(libs.androidx.exifinterface)
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.junit)
+}
+
+android {
+    testOptions { unitTests { isIncludeAndroidResources = true } }
 }

@@ -47,7 +47,12 @@ class PdfEngine(private val context: Context) {
     }
 
     private fun save(doc: PDDocument, out: File) {
-        AtomicFileWriter.write(out) { doc.save(it) }
+        // PDDocument.save(OutputStream) закрывает поток, а AtomicFileWriter после записи делает fsync —
+        // поэтому закрытие перехватывается (поток закроет сам AtomicFileWriter).
+        AtomicFileWriter.write(out) { os -> doc.save(object : java.io.FilterOutputStream(os) {
+            override fun write(b: ByteArray, off: Int, len: Int) = os.write(b, off, len)
+            override fun close() = os.flush()
+        }) }
     }
 
     /** Новый PDF из изображений страниц с текстовым слоем (кириллица — шрифт Liberation Sans, встраивается). */
