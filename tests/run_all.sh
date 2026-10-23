@@ -13,6 +13,7 @@ PAGE="$WORK/project/app/src/main/assets"
 MANY="${MANY:-1500}" python3 "$HERE/fixtures/make_fixtures.py" "$WORK/fx" >/dev/null
 export VYP_FIX="$WORK/fx" VYP_OUT="$WORK/out"
 run(){ echo; echo "== $1"; shift; "$@"; }
+run "Статическая проверка кода (TypeScript)" node "$HERE/unit/static_check.cjs" "$PAGE/index.html"
 run "Разбор ФИО и событий (unit)"            node "$HERE/unit/register.test.cjs" "$PAGE/index.html"
 run "DOCX: фоновый разбор = DOMParser"      python3 "$HERE/e2e/docx_equivalence.py" "$PAGE"
 run "Приёмка DESIGN_SPEC 2.0"               python3 "$HERE/e2e/acceptance.py" "$PAGE"
