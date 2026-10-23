@@ -101,9 +101,8 @@ class NavigationTest {
         )
         for ((route, t) in screens) {
             rule.runOnUiThread { nav.navigate(route) }
-            rule.waitForIdle()
-            assertTrue("экран «$t»", title(t))
-            assertTrue(title("Документ не найден"))
+            // Экраны загружают документ асинхронно (Room) — ждём, а не проверяем мгновенно.
+            rule.waitUntil(5_000) { title(t) && title("Документ не найден") }
             rule.runOnUiThread { nav.popBackStack() }
             rule.waitForIdle()
         }
