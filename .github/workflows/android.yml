@@ -45,6 +45,16 @@ jobs:
       - name: Unit-тесты Android-модулей
         run: tools/ci/gradle.sh testDebugUnitTest
 
+      - name: Снимки дизайн-системы (Roborazzi, светлая и тёмная темы)
+        run: tools/ci/gradle.sh :core:designsystem:recordRoborazziDebug
+
+      - name: Артефакт снимков дизайн-системы
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-screenshots
+          path: core/designsystem/build/outputs/roborazzi/
+          if-no-files-found: error
+
       - name: Офлайн-режим — нет INTERNET и сетевых SDK
         run: tools/ci/gradle.sh :app:verifyNoNetwork
 

@@ -44,7 +44,7 @@ data class ScannerColors(
     val isDark: Boolean,
 )
 
-private fun rgba(r: Int, g: Int, b: Int, a: Float) = Color(r, g, b, (a * 255).toInt())
+private fun rgba(r: Int, g: Int, b: Int, a: Float) = Color(r, g, b, kotlin.math.round(a * 255).toInt())
 
 val DarkColors = ScannerColors(
     bg = Color(0xFF080B12), bgSecondary = Color(0xFF111722), surface = Color(0xFF1A2230), field = Color(0xFF111722),
@@ -113,7 +113,33 @@ object Motion {
     const val STATE_MS = 200
     const val SCREEN_MS = 280
     const val SHEET_MS = 320
+    const val PRESS_SCALE = 0.96f
+    const val SHUTTER_PRESS_SCALE = 0.92f
 }
+
+/**
+ * Тени (shadow-1, shadow-2, shadow-accent). В Compose тень задаётся высотой и цветом;
+ * значения подобраны так, чтобы радиус размытия совпадал с токенами (24/40/28 px).
+ */
+object Elevation {
+    val card = 8.dp
+    val floating = 16.dp
+    val accent = 12.dp
+}
+
+/**
+ * Таблица «имя токена → цвет» для сверки с tokens.json дизайн-системы (тест TokensTest).
+ * Имена — как в дизайн-системе.
+ */
+fun ScannerColors.byToken(): Map<String, Color> = mapOf(
+    "bg" to bg, "bg-secondary" to bgSecondary, "surface" to surface, "field" to field,
+    "glass" to glass, "glass-strong" to glassStrong, "glass-stroke" to glassStroke, "glass-highlight" to glassHighlight,
+    "separator" to separator, "text" to text, "text-secondary" to textSecondary,
+    "accent" to accent, "accent-pressed" to accentPressed, "accent-text" to accentText, "accent-soft" to accentSoft,
+    "on-accent" to onAccent, "on-accent-soft" to onAccentSoft,
+    "success" to success, "warning" to warning, "danger" to danger, "highlight" to highlight, "focus-ring" to focusRing,
+    "paper" to paper, "watermark-ink" to watermarkInk, "camera-bg" to cameraBg, "scrim" to scrim,
+)
 
 const val OPACITY_WATERMARK = 0.2f
 const val OPACITY_DISABLED = 0.38f
