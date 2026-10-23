@@ -8,7 +8,7 @@ CameraX · OpenCV · Tesseract (rus+eng) · PdfBox-Android · Room · WorkManage
 
 ## Состояние
 См. [`docs/STATUS.md`](docs/STATUS.md) и журнал [`docs/PROGRESS.md`](docs/PROGRESS.md).
-Сейчас: этап 1 из 16 — каркас. Приложение пока не сканирует.
+Сейчас: ТЗ v3.0, этап 1 из 23 (аудит) завершён, Debug APK собирается в CI. Приложение пока не сканирует.
 
 ## Сборка
 ```bash
@@ -23,5 +23,5 @@ CI: `.github/workflows/android.yml` — тесты, проверки, Debug APK 
 Подпись Release — [`docs/SIGNING.md`](docs/SIGNING.md). Установка — [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ## Документы
-- [Архитектура](docs/ARCHITECTURE.md) · [ADR](docs/ADR.md) · [План с критериями](docs/PLAN.md)
+- [Аудит v3.0](docs/AUDIT.md) · [Архитектура](docs/ARCHITECTURE.md) · [ADR](docs/ADR.md) · [План с критериями](docs/PLAN.md)
 - [Лицензии](docs/LICENSES.md) · [Ручной чек-лист](docs/QA_CHECKLIST.md)

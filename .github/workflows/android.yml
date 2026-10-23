@@ -59,6 +59,8 @@ jobs:
           cd app/build/outputs/apk/debug
           ls -la
           sha256sum *.apk | tee SHA256SUMS.txt
+          # Размеры и суммы — в сводку запуска (видны без скачивания артефакта)
+          for f in *.apk; do echo "::notice title=APK $f::$(du -h "$f" | cut -f1) sha256=$(sha256sum "$f" | cut -c1-64)"; done
 
       - name: Артефакт Debug APK
         uses: actions/upload-artifact@v4
