@@ -88,6 +88,32 @@ interface DocumentDao {
     @Query("SELECT t.* FROM tags t JOIN document_tags x ON x.tagId = t.id WHERE x.docId = :docId ORDER BY t.name")
     suspend fun tagsOf(docId: String): List<TagEntity>
 
+    // ── Health Center (этап 18) ──
+    @Query("SELECT * FROM pages")
+    suspend fun allPages(): List<PageEntity>
+
+    @Query("SELECT d.* FROM documents d WHERE d.trashedAt IS NULL AND NOT EXISTS (SELECT 1 FROM pages p WHERE p.docId = d.id)")
+    suspend fun emptyDocuments(): List<DocumentEntity>
+
+    @Query("SELECT pageId FROM page_text WHERE pageId NOT IN (SELECT pageId FROM page_text_fts)")
+    suspend fun textsMissingInIndex(): List<String>
+
+    @Query("SELECT COUNT(*) FROM page_text_fts WHERE pageId NOT IN (SELECT pageId FROM page_text)")
+    suspend fun orphanIndexRows(): Int
+
+    @Query("DELETE FROM page_text_fts")
+    suspend fun clearFts()
+
+    @Query("SELECT * FROM page_text")
+    suspend fun allTexts(): List<PageTextEntity>
+
+    /** Пересоздание полнотекстового индекса из текстового слоя. Оригиналы и тексты не меняются. */
+    @Transaction
+    suspend fun rebuildFts() {
+        clearFts()
+        for (t in allTexts()) insertFts(PageTextFts(pageId = t.pageId, documentId = t.docId, text = t.text))
+    }
+
     /** Корзина старше [before] (для очистки — только по подтверждению пользователя). */
     @Query("SELECT id FROM documents WHERE trashedAt IS NOT NULL AND trashedAt < :before")
     suspend fun trashedBefore(before: Long): List<String>

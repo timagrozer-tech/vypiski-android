@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +40,7 @@ import ru.scanner291.designsystem.ToggleRow
 import ru.scanner291.designsystem.Type
 
 @Composable
-internal fun SettingsRouteScreen(onOpenWatermark: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
+internal fun SettingsRouteScreen(onOpenWatermark: () -> Unit, onOpenHealth: () -> Unit = {}, vm: SettingsViewModel = hiltViewModel()) {
     val p by vm.prefs.collectAsStateWithLifecycle()
     SettingsScreen(
         prefs = p,
@@ -48,6 +49,8 @@ internal fun SettingsRouteScreen(onOpenWatermark: () -> Unit, vm: SettingsViewMo
         onSmartNaming = vm::setSmartNaming,
         onNameByFio = vm::setNameByFio,
         onOpenWatermark = onOpenWatermark,
+        onOpenHealth = onOpenHealth,
+        onAppLock = vm::setAppLock,
     )
 }
 
@@ -69,6 +72,8 @@ fun SettingsScreen(
     onNameByFio: (Boolean) -> Unit,
     onOpenWatermark: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenHealth: () -> Unit = {},
+    onAppLock: (Boolean) -> Unit = {},
 ) {
     var about by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = Space.s10 * 2)) {
@@ -85,6 +90,14 @@ fun SettingsScreen(
             Spacer(Modifier.height(Space.s2))
             GlassCard(padding = Space.s1) {
                 SettingsRow(Icons.Rounded.WaterDrop, "Водяной знак", watermarkValue(prefs), onOpenWatermark)
+                SettingsRow(Icons.Rounded.HealthAndSafety, "Состояние библиотеки", "Проверка файлов и индекса", onOpenHealth)
+            }
+            Spacer(Modifier.height(Space.s6))
+            SectionTitle("Безопасность")
+            Spacer(Modifier.height(Space.s2))
+            GlassCard(padding = Space.s1) {
+                ToggleRow("Блокировка приложения", prefs.appLock, onAppLock,
+                    description = "Отпечаток, лицо или PIN устройства при запуске и после 30 с в фоне. Документы хранятся только на устройстве")
             }
             Spacer(Modifier.height(Space.s6))
             SectionTitle("Интерфейс")

@@ -5,3 +5,6 @@ plugins {
 android {
     namespace = "ru.scanner291.feature.diagnostics"
 }
+dependencies {
+    implementation(project(":core:storage"))
+}

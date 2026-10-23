@@ -29,6 +29,7 @@ import ru.scanner291.feature.documents.documentsScreens
 import ru.scanner291.feature.editor.editorScreens
 import ru.scanner291.feature.export.PdfToolsRoute
 import ru.scanner291.feature.export.exportScreen
+import ru.scanner291.feature.diagnostics.healthScreen
 import ru.scanner291.feature.export.pdfToolsScreen
 import ru.scanner291.feature.home.HomeRoute
 import ru.scanner291.feature.home.homeScreen
@@ -108,7 +109,9 @@ fun ScannerApp(navController: NavHostController = rememberNavController()) {
             exportScreen(onBack = back)
             searchScreen(onOpenDocument = { navController.navigate(ViewerRoute(it)) })
             pdfToolsScreen(onBack = back)
-            settingsScreens(onOpenWatermark = { navController.navigate(WatermarkRoute) }, onBack = back)
+            settingsScreens(onOpenWatermark = { navController.navigate(WatermarkRoute) }, onBack = back,
+                onOpenHealth = { navController.navigate(ru.scanner291.feature.diagnostics.HealthRoute) })
+            healthScreen(onBack = back)
             batchSaveScreen(onBack = back)
         }
         if (top != null) {

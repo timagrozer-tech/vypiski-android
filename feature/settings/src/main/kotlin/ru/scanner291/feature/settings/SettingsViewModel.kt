@@ -22,6 +22,7 @@ class SettingsViewModel @Inject constructor(private val repo: UserPreferencesRep
     fun setDynamicColor(v: Boolean) = launch { repo.setDynamicColor(v) }
     fun setSmartNaming(v: Boolean) = launch { repo.setSmartNaming(v) }
     fun setNameByFio(v: Boolean) = launch { repo.setNameByFio(v) }
+    fun setAppLock(v: Boolean) = launch { repo.setAppLock(v) }
     fun setWatermark(w: WatermarkSettings) = launch { repo.setWatermark(w) }
     fun resetWatermark() = launch { repo.resetWatermark() }
 

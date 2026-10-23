@@ -10,4 +10,5 @@ dependencies {
     api(project(":core:common"))
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core.ktx)
+    testImplementation(libs.junit)
 }

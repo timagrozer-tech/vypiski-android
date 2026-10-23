@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splashscreen)
+    implementation(libs.androidx.biometric)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
@@ -156,6 +157,35 @@ abstract class VerifyNoInternetTask : DefaultTask() {
     }
 }
 
+/**
+ * Этап 19: в объединённом манифесте нет экспортируемых компонентов, кроме экрана запуска (MainActivity с LAUNCHER);
+ * исключение — компоненты, закрытые системным разрешением (android:permission, например DUMP у ProfileInstaller).
+ * Резервное копирование выключено (allowBackup=false). Проверяется вариант release — то, что устанавливается.
+ */
+abstract class VerifyManifestSecurityTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val mergedManifest: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val text = mergedManifest.get().asFile.readText()
+        val problems = ArrayList<String>()
+        val comp = Regex("<(activity|activity-alias|service|receiver|provider)\\b([^>]*)>", RegexOption.DOT_MATCHES_ALL)
+        for (m in comp.findAll(text)) {
+            val attrs = m.groupValues[2]
+            if (!Regex("android:exported=\"true\"").containsMatchIn(attrs)) continue
+            val name = Regex("android:name=\"([^\"]+)\"").find(attrs)?.groupValues?.get(1) ?: "?"
+            val launcher = name.endsWith(".MainActivity")
+            val protected = Regex("android:permission=\"[^\"]+\"").containsMatchIn(attrs)
+            if (!launcher && !protected) problems += "${m.groupValues[1]} $name экспортируется без разрешения"
+        }
+        if (!Regex("android:allowBackup=\"false\"").containsMatchIn(text)) problems += "allowBackup не выключен"
+        if (problems.isNotEmpty()) throw GradleException("Манифест небезопасен:\n" + problems.joinToString("\n"))
+        logger.lifecycle("OK: экспортируется только экран запуска (и компоненты под системным разрешением), резервное копирование выключено")
+    }
+}
+
 androidComponents {
     onVariants { variant ->
         val cap = variant.name.replaceFirstChar { it.uppercase() }
@@ -165,6 +195,14 @@ androidComponents {
             mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
         }
         tasks.matching { it.name == "assemble$cap" }.configureEach { dependsOn(verify) }
+        if (variant.buildType == "release") {
+            val sec = tasks.register<VerifyManifestSecurityTask>("verifyManifestSecurity$cap") {
+                group = "verification"
+                description = "Нет экспортируемых компонентов, кроме экрана запуска; без резервного копирования (${variant.name})"
+                mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+            }
+            tasks.matching { it.name == "assemble$cap" }.configureEach { dependsOn(sec) }
+        }
     }
 }
 

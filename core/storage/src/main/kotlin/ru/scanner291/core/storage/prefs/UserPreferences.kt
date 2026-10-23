@@ -29,6 +29,8 @@ data class UserPreferences(
     /** ☑ «Назвать файл по ФИО» — одно состояние для камеры, редактора, сохранения и экспорта. */
     val nameByFio: Boolean = true,
     val watermark: WatermarkSettings = WatermarkSettings.DEFAULT,
+    /** Блокировка приложения отпечатком/PIN (этап 19), по умолчанию выключена. */
+    val appLock: Boolean = false,
     /** «Мои» пресеты фильтров (этап 9), в порядке создания. */
     val userPresets: List<ru.scanner291.core.common.filters.Preset> = emptyList(),
 )
@@ -44,6 +46,7 @@ internal object PrefKeys {
     val WM_MARGIN_MM = floatPreferencesKey("wm_margin_mm")
     /** Строки Preset.encodeUser(), по одной на строку. */
     val USER_PRESETS = stringPreferencesKey("user_presets")
+    val APP_LOCK = booleanPreferencesKey("app_lock")
     /** SHA-256 файлов, созданных экспортом с водяным знаком (защита от повторного нанесения при обратном импорте). */
     val EXPORTED = androidx.datastore.preferences.core.stringSetPreferencesKey("exported_sha256")
 }
@@ -63,6 +66,7 @@ fun Preferences.toUserPreferences(): UserPreferences {
         smartNaming = this[PrefKeys.SMART_NAMING] ?: d.smartNaming,
         nameByFio = this[PrefKeys.NAME_BY_FIO] ?: d.nameByFio,
         watermark = wm,
+        appLock = this[PrefKeys.APP_LOCK] ?: d.appLock,
         userPresets = this[PrefKeys.USER_PRESETS].orEmpty().lines().filter { it.isNotBlank() }
             .mapNotNull { ru.scanner291.core.common.filters.Preset.decodeUser(it) },
     )
@@ -87,6 +91,7 @@ class UserPreferencesRepository @Inject constructor(
         .distinctUntilChanged()
 
     suspend fun setTheme(t: ThemeChoice) = dataStore.edit { it[PrefKeys.THEME] = t.name }
+    suspend fun setAppLock(v: Boolean) = dataStore.edit { it[PrefKeys.APP_LOCK] = v }
 
     /** Сохранить «мой» пресет (с тем же id — заменить). Не больше 50. */
     suspend fun saveUserPreset(p: ru.scanner291.core.common.filters.Preset) = dataStore.edit { prefs ->

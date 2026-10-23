@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object SettingsRoute
 @Serializable data object WatermarkRoute
 
-fun NavGraphBuilder.settingsScreens(onOpenWatermark: () -> Unit, onBack: () -> Unit) {
-    composable<SettingsRoute> { SettingsRouteScreen(onOpenWatermark = onOpenWatermark) }
+fun NavGraphBuilder.settingsScreens(onOpenWatermark: () -> Unit, onBack: () -> Unit, onOpenHealth: () -> Unit = {}) {
+    composable<SettingsRoute> { SettingsRouteScreen(onOpenWatermark = onOpenWatermark, onOpenHealth = onOpenHealth) }
     composable<WatermarkRoute> { WatermarkRouteScreen(onBack = onBack) }
 }

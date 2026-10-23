@@ -201,6 +201,7 @@ class AppScreenshotTest {
         shot("07b-search-results", "В тексте документов")
         go(SettingsRoute); shot("08-settings", "Водяной знак")
         go(WatermarkRoute); shot("09-watermark", "В/ч 65384")
+        back(); go(ru.scanner291.feature.diagnostics.HealthRoute); shot("09b-health", "Проверить снова")
         back()
         go(PdfToolsRoute); shot("10-pdf-tools", "Объединить")
         back()

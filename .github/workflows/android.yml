@@ -81,6 +81,9 @@ jobs:
       - name: Офлайн-режим — нет INTERNET и сетевых SDK
         run: tools/ci/gradle.sh :app:verifyNoNetwork
 
+      - name: Безопасность манифеста (экспортируемые компоненты, резервное копирование)
+        run: tools/ci/gradle.sh :app:verifyManifestSecurityRelease
+
       - name: Lint
         run: tools/ci/gradle.sh :app:lintDebug
 
