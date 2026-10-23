@@ -188,12 +188,21 @@ class DocumentRepository @Inject constructor(
     private fun imageSize(f: File): Pair<Int, Int> {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, o)
-        if (o.outWidth <= 0 || o.outHeight <= 0) throw ImportRejectedException("Изображение повреждено или формат не поддерживается устройством")
-        if (o.outWidth > ImportLimits.MAX_IMAGE_SIDE || o.outHeight > ImportLimits.MAX_IMAGE_SIDE) {
+        var w = o.outWidth
+        var h = o.outHeight
+        val exif = runCatching { ExifInterface(f.path) }.getOrNull()
+        if (w <= 0 || h <= 0) {
+            // Декодер платформы не всегда сообщает размеры (некоторые HEIC/JPEG-варианты); берём их из
+            // заголовка (SOF) / EXIF. Файл без размеров — повреждён.
+            w = exif?.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0) ?: 0
+            h = exif?.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0) ?: 0
+        }
+        if (w <= 0 || h <= 0) throw ImportRejectedException("Изображение повреждено или формат не поддерживается устройством")
+        if (w > ImportLimits.MAX_IMAGE_SIDE || h > ImportLimits.MAX_IMAGE_SIDE) {
             throw ImportRejectedException("Слишком большое разрешение изображения")
         }
-        val rot = runCatching { ExifInterface(f.path).rotationDegrees }.getOrDefault(0)
-        return if (rot == 90 || rot == 270) o.outHeight to o.outWidth else o.outWidth to o.outHeight
+        val rot = exif?.rotationDegrees ?: 0
+        return if (rot == 90 || rot == 270) h to w else w to h
     }
 
     /** Размеры страниц PDF в пунктах; зашифрованный или повреждённый PDF отклоняется. */

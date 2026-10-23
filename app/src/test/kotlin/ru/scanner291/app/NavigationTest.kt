@@ -20,8 +20,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import android.graphics.Bitmap
-import android.graphics.Color
 import kotlinx.coroutines.runBlocking
 import ru.scanner291.core.common.model.ScanMode
 import ru.scanner291.core.database.DocumentSource
@@ -123,7 +121,8 @@ class NavigationTest {
             val doc = repo.createDocument(ScanMode.ORDER, DocumentSource.CAMERA, "Приказ 15")
             paths.work.mkdirs()
             val f = File(paths.work, "t.jpg")
-            f.outputStream().use { Bitmap.createBitmap(120, 160, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            val img = java.awt.image.BufferedImage(120, 160, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            check(javax.imageio.ImageIO.write(img, "jpg", f))
             repo.addCapturedPage(doc, f)
             doc
         }

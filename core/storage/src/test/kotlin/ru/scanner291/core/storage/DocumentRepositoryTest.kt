@@ -1,8 +1,6 @@
 package ru.scanner291.core.storage
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Color
 import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -55,10 +53,12 @@ class DocumentRepositoryTest {
         root.deleteRecursively()
     }
 
+    /** Настоящий JPEG средствами JVM (не зависит от графики Robolectric). */
     private fun jpeg(w: Int, h: Int): File {
         val f = File(paths.work, "cap-${System.nanoTime()}.jpg")
-        val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
-        f.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        val img = java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        val g = img.createGraphics(); g.color = java.awt.Color.WHITE; g.fillRect(0, 0, w, h); g.dispose()
+        check(javax.imageio.ImageIO.write(img, "jpg", f)) { "ImageIO не записал JPEG" }
         return f
     }
 
