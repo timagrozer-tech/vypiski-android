@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">291 Сканер</string>
+    <string name="app_tagline">Офлайн-сканер документов</string>
+    <string name="offline_badge">Работает без интернета</string>
+    <string name="build_stage_title">Сборка этапа 1</string>
+    <string name="build_stage_body">Это каркас приложения: тема, заставка и проверки безопасности сборки. Сканирование, OCR и экспорт появятся на следующих этапах.</string>
+    <string name="recovered_ops">Восстановлено незавершённых операций: %1$d</string>
+    <string name="version_label">Версия %1$s</string>
+</resources>

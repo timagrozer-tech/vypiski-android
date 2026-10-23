@@ -1,0 +1,164 @@
+import com.android.build.api.artifact.SingleArtifact
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+}
+
+/**
+ * Подпись Release: ключи НЕ хранятся в репозитории.
+ * Источник — файл keystore.properties (в .gitignore) или переменные окружения CI.
+ * См. docs/SIGNING.md.
+ */
+val signingProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun signingValue(key: String, env: String): String? =
+    signingProps.getProperty(key) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = signingValue("storeFile", "SCANNER291_STORE_FILE")
+val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exists()
+
+android {
+    namespace = "ru.scanner291.app"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "ru.scanner291"
+        minSdk = 29
+        targetSdk = 36
+        versionCode = 1
+        versionName = "0.1.0-stage1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables { useSupportLibrary = true }
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = signingValue("storePassword", "SCANNER291_STORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "SCANNER291_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "SCANNER291_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Без ключей release собирается неподписанным (assembleRelease не падает),
+            // такой APK нельзя установить — это осознанно.
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    // Отдельные APK по архитектурам: OpenCV и Tesseract содержат нативные библиотеки (~10 МБ на ABI).
+    // universalApk — для простой установки «одним файлом» на любой телефон.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+    packaging {
+        resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES")
+    }
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+        // Отсутствие INTERNET — требование ТЗ, а не ошибка.
+        disable += setOf("MissingPermission")
+    }
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+}
+
+dependencies {
+    implementation(project(":core:domain"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":core:data"))
+    implementation(project(":core:imaging"))
+    implementation(project(":core:ocr"))
+    implementation(project(":core:pdf"))
+    implementation(project(":core:security"))
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.splashscreen)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+/**
+ * Проверка ИТОГОВОГО (объединённого со всеми библиотеками) манифеста:
+ * разрешение INTERNET не должно появиться ни в одном варианте сборки.
+ * Задача подключена к assemble<Variant>, поэтому APK с сетью собрать невозможно.
+ */
+abstract class VerifyNoInternetTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val mergedManifest: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val text = mergedManifest.get().asFile.readText()
+        val forbidden = listOf("android.permission.INTERNET")
+        val found = forbidden.filter { p -> Regex("""uses-permission[^>]*android:name="${Regex.escape(p)}"""").containsMatchIn(text) }
+        if (found.isNotEmpty()) {
+            throw GradleException("В объединённом манифесте найдены запрещённые разрешения: $found (${mergedManifest.get().asFile})")
+        }
+        logger.lifecycle("OK: в объединённом манифесте нет разрешения INTERNET")
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val cap = variant.name.replaceFirstChar { it.uppercase() }
+        val verify = tasks.register<VerifyNoInternetTask>("verifyNoInternet$cap") {
+            group = "verification"
+            description = "Проверяет отсутствие INTERNET в объединённом манифесте варианта ${variant.name}"
+            mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+        }
+        tasks.matching { it.name == "assemble$cap" }.configureEach { dependsOn(verify) }
+    }
+}
+
+tasks.register("verifyNoNetwork") {
+    group = "verification"
+    description = "INTERNET отсутствует в манифестах всех вариантов + нет сетевых SDK в зависимостях"
+    dependsOn(tasks.matching { it.name.startsWith("verifyNoInternet") })
+    dependsOn(":verifyNoNetworkDependencies")
+}

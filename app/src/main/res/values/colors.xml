@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Совпадают с токенами core/designsystem (DarkColors/LightColors). -->
+    <color name="splash_bg">#F5F7FB</color>
+    <color name="brand_accent">#007AFF</color>
+    <color name="ic_launcher_background">#080B12</color>
+</resources>

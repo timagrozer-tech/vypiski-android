@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок: лист документа в рамке видоискателя. Безопасная зона адаптивной иконки — центр 66×66 из 108×108. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- лист -->
+    <path android:fillColor="#F5F7FA"
+        android:pathData="M43,35h16l9,9v27a3,3 0,0 1,-3 3H43a3,3 0,0 1,-3 -3V38a3,3 0,0 1,3 -3z"/>
+    <path android:fillColor="#9BA8BA" android:pathData="M59,35v9h9z"/>
+    <!-- строки текста -->
+    <path android:fillColor="#9BA8BA" android:pathData="M45,50h18v2.5H45z M45,56h18v2.5H45z M45,62h12v2.5H45z"/>
+    <!-- уголки видоискателя -->
+    <path android:fillColor="#1683FF"
+        android:pathData="M30,30h10v3.5h-6.5V40H30z M78,30v10h-3.5v-6.5H68V30z M30,78V68h3.5v6.5H40V78z M78,78H68v-3.5h6.5V68H78z"/>
+</vector>
