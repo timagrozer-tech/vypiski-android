@@ -4,8 +4,9 @@ set -uo pipefail
 adb shell svc wifi disable || true
 adb shell svc data disable || true
 adb logcat -c || true
-tools/ci/gradle.sh connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+timeout 1800 tools/ci/gradle.sh connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
 rc=$?
+[ "$rc" = "124" ] && echo "::error title=Эмулятор::тесты не уложились в 30 минут (зависание)"
 echo "gradle rc=$rc"
 logs=$(adb logcat -d 2>/dev/null | grep 'DetectorAccuracy' | sed 's/^.*DetectorAccuracy[^:]*: //' | tr -d '\r' | tail -3 | tr '\n' ' ')
 echo "logcat: $logs"

@@ -11,3 +11,4 @@ keystore.properties
 
 # Локальные секреты подписи
 *.p12
+__pycache__/
