@@ -76,6 +76,51 @@ class DocumentRepository @Inject constructor(
             dao.setRecipe(pageId, recipe?.let { ru.scanner291.core.common.render.RecipeCodec.encode(it) })
         }
 
+    // ── Менеджер документов (этап 14) ──
+    fun observeCollection(c: DocCollection, now: Long = System.currentTimeMillis()) = dao.observeFiltered(
+        trash = if (c is DocCollection.Trash) 1 else 0, folderId = (c as? DocCollection.InFolder)?.folderId,
+        favorite = if (c is DocCollection.Favorites) 1 else 0, tagId = (c as? DocCollection.Tagged)?.tagId,
+        since = if (c is DocCollection.Recent) now - 7L * 24 * 3600 * 1000 else 0L,
+        noText = if (c is DocCollection.NoText) 1 else 0, duplicates = if (c is DocCollection.Duplicates) 1 else 0,
+    )
+    fun observeFolders() = dao.observeFolders()
+    fun observeTags() = dao.observeTags()
+    suspend fun tagsOf(docId: String) = dao.tagsOf(docId)
+    suspend fun setFavorite(docId: String, fav: Boolean) = dao.setFavorite(docId, fav)
+    suspend fun moveToFolder(docId: String, folderId: String?) = dao.moveToFolder(docId, folderId)
+    suspend fun createFolder(name: String): String {
+        val n = name.trim().take(60); require(n.isNotEmpty()) { "Введите название папки" }
+        return java.util.UUID.randomUUID().toString().also { dao.insertFolder(ru.scanner291.core.database.FolderEntity(it, n, System.currentTimeMillis())) }
+    }
+    suspend fun renameFolder(id: String, name: String) = dao.renameFolder(id, name.trim().take(60).ifEmpty { throw IllegalArgumentException("Введите название папки") })
+    /** Папка удаляется, документы остаются (без папки). */
+    suspend fun deleteFolder(id: String) = dao.deleteFolder(id)
+
+    /** Тег по имени (создаётся при необходимости, без учёта пробелов по краям). */
+    suspend fun addTag(docId: String, name: String) = db.withTransaction {
+        val n = name.trim().take(40); require(n.isNotEmpty()) { "Введите тег" }
+        val tag = dao.tagByName(n) ?: ru.scanner291.core.database.TagEntity(java.util.UUID.randomUUID().toString(), n).also { dao.insertTag(it) }
+        dao.addTag(ru.scanner291.core.database.DocumentTag(docId, tag.id))
+    }
+    suspend fun removeTag(docId: String, tagId: String) = dao.removeTag(docId, tagId)
+
+    /** В корзину: документ скрывается из списков и поиска, файлы не трогаются. */
+    suspend fun trashDocument(docId: String) = dao.setTrashed(docId, System.currentTimeMillis())
+    suspend fun restoreDocument(docId: String) = dao.setTrashed(docId, null)
+
+    /**
+     * Удаление навсегда — только из корзины и только после подтверждения пользователя на экране.
+     * Сначала файлы переносятся в служебную папку удаления (атомарно), затем удаляются записи, затем файлы.
+     */
+    suspend fun deleteForever(docId: String) = withContext(Dispatchers.IO) {
+        val d = dao.document(docId) ?: return@withContext
+        require(d.doc.trashedAt != null) { "Удалить навсегда можно только документ из корзины" }
+        val dir = File(paths.docs, docId); val gone = File(paths.trash, "deleting-$docId")
+        if (dir.exists() && !dir.renameTo(gone)) throw IOException("Не удалось удалить файлы документа")
+        db.withTransaction { d.pages.forEach { dao.deleteFts(it.id) }; dao.deleteDocument(docId) }
+        gone.deleteRecursively(); File(paths.trash, docId).deleteRecursively()
+    }
+
     /** Переименование документа (только по действию пользователя). Пустое название не принимается. */
     suspend fun rename(docId: String, title: String) = withContext(Dispatchers.IO) {
         val t = title.trim().take(120)
@@ -99,7 +144,7 @@ class DocumentRepository @Inject constructor(
         val q = query.trim()
         if (q.isEmpty()) return@withContext SearchResults(emptyList(), emptyList())
         val low = q.lowercase()
-        val titles = dao.allDocuments().filter { it.title.lowercase().contains(low) }
+        val titles = dao.allDocuments().filter { it.trashedAt == null && it.title.lowercase().contains(low) }
         val match = ftsQuery(q)
         val hits = if (match.isEmpty()) emptyList() else runCatching { dao.searchText(match) }.getOrDefault(emptyList())
         SearchResults(titles, hits)
@@ -317,3 +362,15 @@ data class SearchResults(val titles: List<ru.scanner291.core.database.DocumentEn
  */
 fun ftsQuery(q: String): String =
     Regex("[\\p{L}\\p{N}]+").findAll(q).map { it.value.lowercase() }.take(8).joinToString(" ") { "$it*" }
+
+/** Умные коллекции (этап 14): запросы к индексу, а не копии файлов. */
+sealed interface DocCollection {
+    data object All : DocCollection
+    data object Recent : DocCollection
+    data object NoText : DocCollection
+    data object Duplicates : DocCollection
+    data object Favorites : DocCollection
+    data object Trash : DocCollection
+    data class InFolder(val folderId: String) : DocCollection
+    data class Tagged(val tagId: String) : DocCollection
+}

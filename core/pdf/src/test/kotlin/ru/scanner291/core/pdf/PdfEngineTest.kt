@@ -62,7 +62,8 @@ class PdfEngineTest {
         assertEquals(listOf("первая", "третья", "вторая"), engine.pageTexts(i))
         val rot = File(tmp.root, "rot.pdf"); engine.rotate(m, setOf(1), 90, rot)
         assertEquals(listOf(0, 90, 0), engine.rotationOf(rot))
-        assertEquals(listOf("первая", "вторая", "третья"), engine.pageTexts(rot))   // текст не теряется
+        // текст не теряется (повёрнутая страница извлекается по буквам столбиком — сравниваем без пробелов)
+        assertEquals(listOf("первая", "вторая", "третья"), engine.pageTexts(rot).map { it.replace(Regex("\\s+"), "") })
         assertTrue("исходный файл не изменён", aBytes.contentEquals(a.readBytes()))
     }
 

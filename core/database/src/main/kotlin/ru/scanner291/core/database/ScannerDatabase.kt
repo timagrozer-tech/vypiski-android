@@ -6,10 +6,10 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
- * Индекс документов. v1 — этап 5 (документы и страницы), v2 — этап 6 (углы листа), v3 — этап 7 (рецепт обработки), v4 — этап 10 (текстовый слой и FTS). Папки, теги, FTS OCR, корзина —
+ * Индекс документов. v1 — этап 5 (документы и страницы), v2 — этап 6 (углы листа), v3 — этап 7 (рецепт обработки), v4 — этап 10 (текстовый слой и FTS), v5 — этап 14 (папки, теги, избранное, корзина). Папки, теги, FTS OCR, корзина —
  * этапы 10 и 14 через миграции (схемы — в core/database/schemas, сравниваются тестом миграций).
  */
-@Database(entities = [DocumentEntity::class, PageEntity::class, PageTextEntity::class, PageTextFts::class], version = 4, exportSchema = true)
+@Database(entities = [DocumentEntity::class, PageEntity::class, PageTextEntity::class, PageTextFts::class, FolderEntity::class, TagEntity::class, DocumentTag::class], version = 5, exportSchema = true)
 abstract class ScannerDatabase : RoomDatabase() {
     abstract fun documentDao(): DocumentDao
 
@@ -35,6 +35,20 @@ abstract class ScannerDatabase : RoomDatabase() {
                 db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `page_text_fts` USING FTS4(`pageId` TEXT NOT NULL, `documentId` TEXT NOT NULL, `text` TEXT NOT NULL, tokenize=unicode61, notindexed=`pageId`, notindexed=`documentId`)")
             }
         }
-        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        /** v4 → v5 (этап 14): папки, теги, избранное, корзина документов. ADD COLUMN и новые таблицы. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE documents ADD COLUMN folderId TEXT")
+                db.execSQL("ALTER TABLE documents ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE documents ADD COLUMN trashedAt INTEGER")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_documents_folderId` ON `documents` (`folderId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `folders` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `tags` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_tags_name` ON `tags` (`name`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `document_tags` (`docId` TEXT NOT NULL, `tagId` TEXT NOT NULL, PRIMARY KEY(`docId`, `tagId`), FOREIGN KEY(`docId`) REFERENCES `documents`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`tagId`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_document_tags_tagId` ON `document_tags` (`tagId`)")
+            }
+        }
+        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
     }
 }

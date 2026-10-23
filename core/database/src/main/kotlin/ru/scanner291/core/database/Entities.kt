@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Relation
 
 /** Документ. Файлы лежат отдельно от БД (filesDir/docs/<id>/…); здесь — только индекс и метаданные. */
-@Entity(tableName = "documents", indices = [Index("updatedAt")])
+@Entity(tableName = "documents", indices = [Index("updatedAt"), Index("folderId")])
 data class DocumentEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -19,7 +19,33 @@ data class DocumentEntity(
     val source: String,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Папка (этап 14); null — без папки. Документ в одной папке; файлы не копируются. */
+    val folderId: String? = null,
+    @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
+    /** Время переноса в корзину; null — не в корзине. Файлы остаются на месте до удаления с подтверждением. */
+    val trashedAt: Long? = null,
 )
+
+/** Папка (этап 14). */
+@Entity(tableName = "folders")
+data class FolderEntity(@PrimaryKey val id: String, val name: String, val createdAt: Long)
+
+/** Тег (этап 14); имя уникально. */
+@Entity(tableName = "tags", indices = [Index(value = ["name"], unique = true)])
+data class TagEntity(@PrimaryKey val id: String, val name: String)
+
+@Entity(
+    tableName = "document_tags",
+    primaryKeys = ["docId", "tagId"],
+    foreignKeys = [
+        ForeignKey(entity = DocumentEntity::class, parentColumns = ["id"], childColumns = ["docId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = TagEntity::class, parentColumns = ["id"], childColumns = ["tagId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("tagId")],
+)
+data class DocumentTag(val docId: String, val tagId: String)
+
+data class FolderSummary(@Embedded val folder: FolderEntity, @ColumnInfo(name = "count") val count: Int)
 
 enum class DocumentSource { CAMERA, IMPORT_IMAGE, IMPORT_PDF }
 

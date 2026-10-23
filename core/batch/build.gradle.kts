@@ -14,4 +14,5 @@ dependencies {
     implementation(libs.hilt.ext.work)
     ksp(libs.hilt.ext.compiler)
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(libs.junit)
 }
