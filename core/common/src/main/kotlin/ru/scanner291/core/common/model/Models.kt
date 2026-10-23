@@ -4,8 +4,8 @@ import ru.scanner291.core.common.geometry.Quad
 
 /** Режим сканирования: подсказка формата и фильтра. Не ограничивает типы файлов. */
 enum class ScanMode(val title: String, val aspectWOverH: Double?, val defaultFilter: FilterType) {
-    A4("Документ A4", 210.0 / 297.0, FilterType.TEXT_BOOST),
-    A5("Документ A5", 148.0 / 210.0, FilterType.TEXT_BOOST),
+    A4("Документ A4", 210.0 / 297.0, FilterType.HYBRID),
+    A5("Документ A5", 148.0 / 210.0, FilterType.HYBRID),
     PASSPORT("Паспорт", 125.0 / 176.0, FilterType.COLOR),
     ID_CARD("Удостоверение", 85.6 / 54.0, FilterType.COLOR),
     CERTIFICATE("Справка", 210.0 / 297.0, FilterType.HYBRID),
@@ -14,22 +14,26 @@ enum class ScanMode(val title: String, val aspectWOverH: Double?, val defaultFil
     CONTRACT("Договор", 210.0 / 297.0, FilterType.HYBRID),
     RECEIPT("Чек", null, FilterType.RECEIPT),
     BOOK("Книга", null, FilterType.BOOK),
-    TABLE("Таблица", null, FilterType.TEXT_BOOST),
+    TABLE("Таблица", null, FilterType.HYBRID),
     DRAWING("Чертёж", null, FilterType.BW),
-    CUSTOM("Произвольный документ", null, FilterType.COLOR),
+    CUSTOM("Произвольный документ", null, FilterType.HYBRID),
 }
+
+/** Пять основных фильтров экрана «Улучшение» (по ТЗ) — первыми; остальные — дальше в ленте. */
+val MAIN_FILTERS: List<FilterType> get() = listOf(FilterType.HYBRID, FilterType.BW, FilterType.GRAY, FilterType.COLOR, FilterType.ORIGINAL)
+val FILTER_ORDER: List<FilterType> get() = MAIN_FILTERS + FilterType.entries.filter { it !in MAIN_FILTERS }
 
 enum class FilterType(val title: String) {
     ORIGINAL("Оригинал"),
     COLOR("Цветной"),
-    BW("Чёрно-белый"),
+    BW("Ч/Б"),
     GRAY("Серый"),
     TEXT_BOOST("Усиленный текст"),
     PHOTO("Фото"),
     RECEIPT("Чек"),
     BOOK("Книга"),
     /** Hybrid HD Pro (этап 8): текст чёрный, фон белый, печати и подписи — в своём цвете. */
-    HYBRID("Hybrid HD"),
+    HYBRID("Документ"),
 }
 
 /**
@@ -56,8 +60,13 @@ enum class HybridProfile(
     val maskGrow: Int,
     /** Текст строго чёрно-белый (с мягким краем). */
     val textBw: Boolean,
+    /**
+     * Уровни «как у сканера» (2026-10-23): белая точка — по фону ([bgWhite]), чёрная — по тексту, гамма [textGamma];
+     * сгибы и зерно бумаги уходят в белое. Измерено (tools/processing-lab/lab_doc.py): фон 255, CER 6.4 % → 2.4 %.
+     */
+    val scannerLevels: Boolean = false,
 ) {
-    DOCUMENT("Документ", true, true, 1.8, 0.5, 0.92, 60, 235, 1.25, 2, false),
+    DOCUMENT("Документ", true, true, 1.4, 0.6, 0.88, 60, 235, 1.3, 2, false, scannerLevels = true),
     CONTRAST("Контраст", true, true, 2.4, 0.7, 0.88, 60, 235, 1.4, 2, true),
     SOFT("Мягкий", true, true, 1.3, 0.3, 0.95, 60, 235, 1.1, 1, false),
 }

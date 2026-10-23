@@ -39,10 +39,18 @@ class ProcessedPageLoader @Inject constructor(private val loader: PageImageLoade
     suspend fun load(page: PageEntity, recipe: PageRecipe, mode: ScanMode, maxSide: Int): Bitmap? {
         val key = "${page.id}#${page.pdfPageIndex ?: -1}@$maxSide|${RecipeCodec.cacheKey(recipe)}|${mode.name}"
         cache.get(key)?.let { return it }
-        val src = loader.load(page, maxSide) ?: return null
         return gate.withPermit {
             cache.get(key) ?: withContext(Dispatchers.Default) {
-                runCatching { PageRenderer.render(src, recipe, mode.aspectWOverH) }.getOrNull()
+                // Нехватка памяти: размер понижается (×0.7) и рендер повторяется, до 3 раз
+                var side = maxSide; var out: Bitmap? = null
+                for (attempt in 0 until 3) {
+                    try {
+                        val src = loader.load(page, side) ?: break
+                        out = PageRenderer.render(src, recipe, mode.aspectWOverH); break
+                    } catch (e: OutOfMemoryError) { side = (side * 0.7).toInt(); System.gc() }
+                    catch (e: Exception) { break }
+                }
+                out
             }?.also { cache.put(key, it) }
         }
     }

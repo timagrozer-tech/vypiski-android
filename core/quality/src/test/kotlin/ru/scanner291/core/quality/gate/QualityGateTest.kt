@@ -84,7 +84,12 @@ class QualityGateTest {
 
     @Test fun cutOffBorders() {
         val q = Quad(Pt(0.0, 0.0), Pt(0.85, 0.05), Pt(0.9, 0.95), Pt(0.0, 1.0))
-        assertTrue(Check.BORDERS to Severity.ERROR in checks(QualityGate.evaluate(frame(q), q)))
+        val r = QualityGate.evaluate(frame(q), q)
+        assertTrue("срез — предупреждение, не ошибка", Check.BORDERS to Severity.WARNING in checks(r))
+        assertTrue(r.issues.none { it.check == Check.BORDERS && it.severity == Severity.ERROR })
+        val bottom = Quad(Pt(0.05, 0.1), Pt(0.95, 0.1), Pt(0.98, 1.0), Pt(0.02, 1.0))
+        assertEquals("Низ листа может быть обрезан. Переснимите или продолжите",
+            QualityGate.evaluate(frame(bottom), bottom).issues.first { it.check == Check.BORDERS }.message)
         val one = Quad(Pt(0.005, 0.1), Pt(0.85, 0.1), Pt(0.85, 0.9), Pt(0.1, 0.9))
         assertTrue(Check.BORDERS to Severity.WARNING in checks(QualityGate.evaluate(frame(one), one)))
     }

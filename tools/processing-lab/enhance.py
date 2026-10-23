@@ -137,7 +137,10 @@ def render(bgr, q, f, rotation=0, shadows=True, dn=True, b=0.0, c=1.0, aspect=No
     elif f == "TEXT_BOOST":
         img = unsharp(text_curve(levels(img), cfg.get("gamma", 1.8)), 1.0, cfg.get("sharp", 0.5))
     elif f in ("BW", "RECEIPT"):
-        img = levels(img)
+        # сначала «уровни сканера» (белая точка 0.88): сгибы и зерно уходят в белое и не становятся чёрными линиями
+        hist = cv2.calcHist([img], [0], None, [256], [0, 256]).ravel(); cum = np.cumsum(hist)
+        bp = int(np.searchsorted(cum, cum[-1] * 0.005)); wp = max(bp + 16, int(255 * 0.88))
+        img = cv2.LUT(img, (np.clip((np.arange(256) - bp) / (wp - bp), 0, 1) * 255).astype(np.uint8))
         img = brightness_contrast(img, b, c)
         o = binarize(img, cfg.get("bw", "adaptive"), cfg.get("C", 12) if f == "BW" else cfg.get("Crec", 8))
         if f == "RECEIPT":   # чек: бледная термопечать — штрихи утолщаются (эрозия белого 2×2)

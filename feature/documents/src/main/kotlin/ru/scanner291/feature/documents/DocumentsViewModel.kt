@@ -86,11 +86,17 @@ sealed interface ViewerState {
     data class Ready(val doc: DocumentWithPages) : ViewerState
 }
 
+/** Текст страницы для вкладки «Word»: абзацы с выравниванием (по рамкам слов) или простой текст. */
+data class PageWord(val paragraphs: List<ru.scanner291.core.common.export.Paragraph>, val edited: Boolean)
+
 @HiltViewModel
 class ViewerViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val repo: DocumentRepository,
     private val loader: PageImageLoader,
     private val processed: ru.scanner291.core.storage.ProcessedPageLoader,
+    private val ocr: ru.scanner291.core.ocr.OcrService,
+    private val autoOrient: ru.scanner291.core.ocr.AutoOrient,
     saved: SavedStateHandle,
 ) : ViewModel() {
     val docId: String = saved.toRoute<ViewerRoute>().docId
@@ -99,12 +105,70 @@ class ViewerViewModel @Inject constructor(
         .map { if (it == null) ViewerState.NotFound else ViewerState.Ready(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ViewerState.Loading)
 
+    /** Текстовый слой страниц (для «Word»). */
+    val texts: StateFlow<Map<String, PageWord>> = repo.observeTexts(docId).map { list ->
+        list.associate { t ->
+            val words = ru.scanner291.core.ocr.WordsCodec.decode(t.words)
+            t.pageId to if (words.isNotEmpty() && !t.edited) PageWord(ru.scanner291.core.common.export.TextLayout.paragraphs(words), false)
+            else PageWord(ru.scanner291.core.common.export.DocxWriter.plainParagraphs(t.text), t.edited)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private val _message = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+    private val _busyPage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val busyPage: StateFlow<String?> = _busyPage
+
+    init {
+        // Автоповорот по тексту — только для страниц, которые пользователь ещё не настраивал
+        viewModelScope.launch {
+            val d = repo.document(docId) ?: return@launch
+            for (p in d.orderedPages.filter { it.recipe == null }) {
+                val r = autoOrient.orient(p)
+                if (r != null && r != 0) _message.value = context.getString(R.string.viewer_rotated_auto, r)
+            }
+        }
+    }
+
+    private fun mode() = ru.scanner291.core.storage.scanModeOf((state.value as? ViewerState.Ready)?.doc?.doc?.mode ?: "")
+
     /**
      * Страница в просмотре — обработанная по рецепту (углы, фильтр, тени…); если обработка недоступна
      * (OpenCV не загрузился), показывается оригинал.
      */
     suspend fun image(page: PageEntity): ImageBitmap? {
-        val m = ru.scanner291.core.storage.scanModeOf((state.value as? ViewerState.Ready)?.doc?.doc?.mode ?: "")
-        return (processed.load(page, page.recipeFor(m), m, 1600) ?: loader.load(page, 1600))?.asImageBitmap()
+        val m = mode()
+        return (processed.load(page, page.recipeFor(m), m, 2000) ?: loader.load(page, 2000))?.asImageBitmap()
     }
+
+    /** Поворот на 90° по часовой — меняется рецепт, оригинал нет. */
+    fun rotate(page: PageEntity) { viewModelScope.launch { repo.setRecipe(page.id, page.recipeFor(mode()).rotatedBy(90)) } }
+
+    /** «Извлечь текст»: распознать страницу (быстрые модели) — текст появится во вкладке «Word». */
+    fun extract(page: PageEntity, then: () -> Unit) {
+        if (_busyPage.value != null) return
+        viewModelScope.launch {
+            _busyPage.value = page.id
+            val r = ocr.recognizePage(page, page.recipeFor(mode()), ru.scanner291.core.ocr.OcrMode.FAST)
+            _busyPage.value = null
+            r.exceptionOrNull()?.let { _message.value = context.getString(R.string.viewer_ocr_failed, it.message ?: "") } ?: then()
+        }
+    }
+
+    /** Текст всех страниц в DOCX (с подсветкой сомнительных слов) — в выбранный файл. */
+    fun saveDocx(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val d = repo.document(docId) ?: return@launch
+            val t = texts.value
+            if (d.orderedPages.none { t[it.id] != null }) { _message.value = context.getString(R.string.viewer_docx_no_text); return@launch }
+            val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching {
+                context.contentResolver.openOutputStream(uri, "w")!!.use { o ->
+                    ru.scanner291.core.common.export.DocxWriter.write(d.orderedPages.map { t[it.id]?.paragraphs.orEmpty() }, o, highlightDoubtful = true)
+                }
+            } }
+            _message.value = r.fold({ context.getString(R.string.viewer_docx_saved) }, { context.getString(R.string.viewer_docx_failed, it.message ?: "") })
+        }
+    }
+
+    fun clearMessage() { _message.value = null }
 }

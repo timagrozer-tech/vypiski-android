@@ -45,7 +45,7 @@ data class ExportOptions(
 )
 
 /** Готовый (проверенный) результат во временной папке; дальше — копирование в выбранное место. */
-data class ExportResult(val files: List<Pair<String, File>>, val warnings: List<String>, val totalBytes: Long, val pageSizeChanged: Boolean)
+data class ExportResult(val files: List<Pair<String, File>>, val warnings: List<String>, val totalBytes: Long, val pageSizeChanged: Boolean, val msPerPage: Long = 0)
 
 /**
  * Smart Export (этап 17). Страницы строятся заново из оригиналов: рецепт → закрашивание → аннотации →
@@ -100,8 +100,16 @@ class ExportService @Inject constructor(
     private class Ready(val bitmap: Bitmap, val dpi: Float, val words: List<ru.scanner291.core.common.model.OcrWord>, val text: String?, val extended: Boolean)
 
     private suspend fun preparePage(p: PageEntity, mode: ru.scanner291.core.common.model.ScanMode, opts: ExportOptions, ledger: Set<String>): Ready {
+        var long = targetLongSide(p, opts.profile, mode.aspectWOverH)
+        // Нехватка памяти на большой странице: разрешение понижается (×0.7) и попытка повторяется (до 3 раз)
+        repeat(2) {
+            try { return preparePageAt(p, mode, opts, ledger, long) } catch (e: OutOfMemoryError) { long = (long * 0.7).toInt(); System.gc() }
+        }
+        return preparePageAt(p, mode, opts, ledger, long)
+    }
+
+    private suspend fun preparePageAt(p: PageEntity, mode: ru.scanner291.core.common.model.ScanMode, opts: ExportOptions, ledger: Set<String>, long: Int): Ready {
         val recipe = p.recipeFor(mode)
-        val long = targetLongSide(p, opts.profile, mode.aspectWOverH)
         val src = loader.load(p, long) ?: error("Страница ${p.position + 1}: файл не открылся")
         var bmp = PageRenderer.render(src, recipe, mode.aspectWOverH) ?: error("Обработка недоступна (OpenCV не загрузился)")
         val txt = repo.text(p.id)
@@ -136,6 +144,7 @@ class ExportService @Inject constructor(
         val files = ArrayList<Pair<String, File>>()
         var extended = false
         val wmOn = opts.watermark.enabled
+        val started = System.currentTimeMillis()
         when (opts.mode) {
             ExportMode.TXT -> {
                 val texts = pages.map { p -> repo.text(p.id)?.let { t ->
@@ -195,7 +204,7 @@ class ExportService @Inject constructor(
         progress(pages.size, pages.size)
         if (extended) warnings += "Для водяного знака на части страниц добавлено поле слева (свободного места не было)"
         if (wmOn) prefs.markExported(files.map { Hashing.sha256(it.second) })
-        ExportResult(files, warnings, files.sumOf { it.second.length() }, extended)
+        ExportResult(files, warnings, files.sumOf { it.second.length() }, extended, (System.currentTimeMillis() - started) / pages.size.coerceAtLeast(1))
     }
 
     companion object { const val MARK = "Scanner291Watermark" }

@@ -38,6 +38,21 @@ class TesseractRecognizer @Inject constructor(private val tessdata: Tessdata) : 
         return OcrResult(text.trim(), words, System.currentTimeMillis() - t0)
     }
 
+    /** Средняя уверенность распознавания (0–100) для блока текста — для выбора ориентации. Текст не сохраняется. */
+    @Synchronized
+    fun confidence(bitmap: Bitmap): Int {
+        val api = engine(OcrMode.FAST)
+        api.pageSegMode = TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK
+        try {
+            api.setImage(bitmap)
+            api.utF8Text
+            return api.meanConfidence()
+        } finally {
+            api.clear()
+            api.pageSegMode = TessBaseAPI.PageSegMode.PSM_SINGLE_COLUMN
+        }
+    }
+
     private fun engine(mode: OcrMode): TessBaseAPI = engines.getOrPut(mode) {
         if (mode == OcrMode.FAST) tessdata.ensureFast()
         else check(tessdata.isInstalled(OcrMode.BEST)) { "Пакет «Высокая точность» не установлен" }

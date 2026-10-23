@@ -93,7 +93,7 @@ fun profileShort(p: QualityProfile) = when (p) {
 }
 
 data class ExportUi(
-    val title: String = "", val mode: ExportMode = ExportMode.PDF_OCR, val profile: QualityProfile = QualityProfile.STANDARD,
+    val title: String = "", val mode: ExportMode = ExportMode.PDF_OCR, val profile: QualityProfile = QualityProfile.HIGH,
     val watermark: WatermarkSettings = WatermarkSettings.DEFAULT, val nameByFio: Boolean = true, val name: String = "",
     val nameHint: String? = null, val estimate: Long? = null, val estimating: Boolean = false,
     val running: Boolean = false, val done: Int = 0, val total: Int = 0,
@@ -163,7 +163,8 @@ class ExportViewModel @Inject constructor(
             _ui.value = _ui.value.copy(running = true, message = null, warnings = emptyList(), error = false, ready = null)
             val r = runCatching { service.export(docId, opts()) { d, t -> _ui.value = _ui.value.copy(done = d, total = t) } }
             _ui.value = r.fold(
-                { _ui.value.copy(running = false, ready = it, warnings = it.warnings, message = "Готово и проверено: ${it.files.size} файл(ов), ${sizeText(it.totalBytes).removePrefix("Примерно ").substringBefore(" (")}") },
+                { _ui.value.copy(running = false, ready = it, warnings = it.warnings, message = "Готово и проверено: ${it.files.size} файл(ов), ${sizeText(it.totalBytes).removePrefix("Примерно ").substringBefore(" (")}, " +
+                    "обработка ${String.format(java.util.Locale.ROOT, "%.1f", it.msPerPage / 1000.0).replace('.', ',')} с/стр.") },
                 { _ui.value.copy(running = false, error = true, message = it.message ?: "Экспорт не удался") },
             )
             r.getOrNull()?.let(then)

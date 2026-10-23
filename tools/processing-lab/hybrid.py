@@ -8,8 +8,10 @@ import enhance as E, pages
 
 PROFILES = {
     # 10 параметров; значения выбраны в lab_hybrid (см. README)
-    "DOCUMENT": dict(shadows=1, denoise=1, text_gamma=1.8, sharpen=0.5, bg_white=0.92, sat_min=60, ink_v_max=235, color_boost=1.25, mask_grow=2, text_bw=0),
+    "DOCUMENT_V1": dict(shadows=1, denoise=1, text_gamma=1.8, sharpen=0.5, bg_white=0.92, sat_min=60, ink_v_max=235, color_boost=1.25, mask_grow=2, text_bw=0),
     "CONTRAST": dict(shadows=1, denoise=1, text_gamma=2.4, sharpen=0.7, bg_white=0.88, sat_min=60, ink_v_max=235, color_boost=1.4, mask_grow=2, text_bw=1),
+    # «Документ» (v2, 2026-10-23): уровни с белой точкой по фону (сгибы и зерно бумаги уходят в белое), чёрная — по тексту
+    "DOCUMENT": dict(shadows=1, denoise=1, text_gamma=1.4, sharpen=0.6, bg_white=0.88, sat_min=60, ink_v_max=235, color_boost=1.3, mask_grow=2, text_bw=0, doc_lut=1),
     "SOFT":     dict(shadows=1, denoise=1, text_gamma=1.3, sharpen=0.3, bg_white=0.95, sat_min=60, ink_v_max=235, color_boost=1.1, mask_grow=1, text_bw=0),
 }
 
@@ -38,6 +40,19 @@ def render(bgr, q, profile="DOCUMENT", aspect=None):
     if p["shadows"]: img = cv2.merge([E.remove_shadows(c) for c in cv2.split(img)])
     color, text = masks(img, p)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if p.get("doc_lut"):
+        hist = cv2.calcHist([gray], [0], None, [256], [0, 256]).ravel(); c = np.cumsum(hist)
+        b = int(np.searchsorted(c, c[-1] * 0.005)); w = int(255 * p["bg_white"])
+        x = np.clip((np.arange(256) - b) / max(1, w - b), 0, 1) ** p["text_gamma"]
+        lut = (x * 255).astype(np.uint8)
+        g = cv2.LUT(gray, lut)
+        t = E.unsharp(g, 1.0, p["sharpen"])
+        out = cv2.cvtColor(t, cv2.COLOR_GRAY2BGR)
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv[..., 1] = np.clip(hsv[..., 1] * p["color_boost"], 0, 255)
+        ci = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        out[color > 0] = ci[color > 0]
+        return out
     g = E.levels(gray)
     if p["text_bw"]:
         t = np.where(g < 160, 0, 255).astype(np.uint8)

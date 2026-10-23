@@ -106,4 +106,20 @@ class PageRendererTest {
             assertTrue("Hybrid $p: фон белый", gray(out.getPixel(450, 160)) >= 250)
         }
     }
+
+    /** «Документ» v2: фон после обработки — средняя яркость ≥ 245, по листу ровный (ТЗ 2026-10-24). */
+    @Test fun documentBackgroundIsWhite() {
+        val src = scene()
+        val n = Quad(Pt(100.0 / w, 120.0 / h), Pt(820.0 / w, 90.0 / h), Pt(850.0 / w, 1110.0 / h), Pt(70.0 / w, 1130.0 / h))
+        val t0 = System.currentTimeMillis()
+        val out = PageRenderer.render(src, PageRecipe(corners = n, filter = FilterType.HYBRID))!!
+        val ms = System.currentTimeMillis() - t0
+        // фон — верхняя полоса над текстом и поля
+        val vals = ArrayList<Int>()
+        for (x in out.width / 10 until out.width * 9 / 10 step 5) for (y in listOf(out.height / 20, out.height * 19 / 20)) vals += gray(out.getPixel(x, y))
+        val mean = vals.average()
+        android.util.Log.i("PageRenderer", "«Документ»: фон ${"%.1f".format(mean)}, ${out.width}×${out.height}, $ms мс")
+        assertTrue("фон $mean", mean >= 245)
+        assertTrue("ровный фон", vals.min() >= 230)
+    }
 }

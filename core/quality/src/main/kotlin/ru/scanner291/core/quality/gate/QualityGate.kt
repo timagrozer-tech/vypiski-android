@@ -89,8 +89,8 @@ object QualityGate {
         if (corners != null) {
             val touching = q.points.count { it.x < T.EDGE_MARGIN || it.y < T.EDGE_MARGIN || it.x > 1 - T.EDGE_MARGIN || it.y > 1 - T.EDGE_MARGIN }
             m[Check.BORDERS] = touching.toDouble()
-            if (touching >= 2) issues += Issue(Check.BORDERS, Severity.ERROR, touching.toDouble(), "Лист выходит за край кадра — часть документа может быть обрезана")
-            else if (touching == 1) issues += Issue(Check.BORDERS, Severity.WARNING, 1.0, "Угол листа у края кадра — проверьте, что ничего не обрезано")
+            // Срез краем кадра — предупреждение, не ошибка: часто обрезано только поле, а сохранение не блокируется
+            cutSide(q)?.let { side -> issues += Issue(Check.BORDERS, Severity.WARNING, touching.toDouble(), "$side может быть обрезан. Переснимите или продолжите") }
             // Наклон: верхняя сторона относительно горизонтали (в пикселях кадра)
             val ang = Math.toDegrees(atan2((q.tr.y - q.tl.y) * frame.h, (q.tr.x - q.tl.x) * frame.w)).let { abs(it) }.let { min(it, abs(180 - it)) }
             m[Check.SKEW] = ang
@@ -123,6 +123,15 @@ object QualityGate {
             else -> Verdict.GOOD
         }
         return QualityReport(verdict, issues, m)
+    }
+
+    /** Какая сторона листа у края кадра: «Низ листа», «Верх листа», «Левый край листа», «Правый край листа». */
+    fun cutSide(q: Quad): String? {
+        val e = T.EDGE_MARGIN
+        val bottom = q.points.count { it.y > 1 - e }; val top = q.points.count { it.y < e }
+        val left = q.points.count { it.x < e }; val right = q.points.count { it.x > 1 - e }
+        val best = listOf("Низ листа" to bottom, "Верх листа" to top, "Левый край листа" to left, "Правый край листа" to right).maxBy { it.second }
+        return best.first.takeIf { best.second > 0 }
     }
 
     private fun crop(g: GrayImage, x0: Int, y0: Int, x1: Int, y1: Int): GrayImage {

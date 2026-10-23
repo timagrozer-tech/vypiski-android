@@ -9,3 +9,7 @@ android {
 dependencies {
     implementation(project(":core:storage"))
 }
+dependencies {
+    implementation(project(":core:ocr"))
+    implementation(project(":core:intelligence"))
+}

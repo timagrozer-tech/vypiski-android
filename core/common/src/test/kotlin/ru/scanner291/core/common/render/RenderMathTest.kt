@@ -17,8 +17,10 @@ class RenderMathTest {
     @Test fun outputSizeUsesLongestOppositeSides() {
         val q = Quad(Pt(10.0, 10.0), Pt(410.0, 20.0), Pt(400.0, 600.0), Pt(20.0, 590.0))
         val (w, h) = RenderMath.outputSize(q)
-        assertEquals(400, w)            // верх 400.1, низ 380.1
-        assertEquals(580, h)            // лево 580.1, право 580.1
+        assertEquals(210.0 / 297.0, w.toDouble() / h, 0.003)   // 400×580 (0.69) близко к A4 → приведено, площадь та же
+        assertEquals(400.0 * 580, w.toDouble() * h, 2_000.0)
+        // Далеко от A4 (квадрат) — пропорции по углам
+        assertEquals(500 to 500, RenderMath.outputSize(rect(500.0, 500.0)))
     }
 
     @Test fun knownFormatSnapsAspectWithinTolerance() {
@@ -95,5 +97,13 @@ class RenderMathTest {
         assertEquals(FilterType.HYBRID, RecipeCodec.default(ScanMode.ORDER).filter)
         assertEquals(3, ru.scanner291.core.common.model.HybridProfile.entries.size)
         assertTrue(FilterType.HYBRID.keepsColor() && FilterType.HYBRID.usesShadowRemoval())
+    }
+
+    @Test fun scannerLevelsWhitenBackgroundAndBlackenText() {
+        val hist = LongArray(256).also { it[30] = 50; it[215] = 300; it[240] = 650 }   // текст, сгиб, фон
+        val lut = RenderMath.scannerLut(hist, 0.88, 1.4)
+        assertEquals(0, lut[30]); assertEquals(255, lut[240]); assertEquals(255, lut[230])
+        assertTrue("сгиб почти белый: ${lut[215]}", lut[215] > 225)
+        assertTrue("середина темнее линейной (гамма)", lut[120] < 255 * (120 - 30) / (224 - 30))
     }
 }

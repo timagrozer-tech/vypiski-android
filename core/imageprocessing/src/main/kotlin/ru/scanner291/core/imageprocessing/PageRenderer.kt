@@ -99,7 +99,9 @@ object PageRenderer {
                     unsharp(img)
                 }
                 FilterType.BW, FilterType.RECEIPT -> {
-                    applyLut(img, RenderMath.levelsLut(hist(img)))
+                    // «Уровни сканера» до бинаризации: сгибы и зерно бумаги уходят в белое и не становятся
+                    // чёрными линиями (замер lab_doc.py: CER 8.7 % → 4.0 %, тёмных пятен фона нет)
+                    applyLut(img, RenderMath.scannerLut(hist(img), RenderParams.BW_WHITE, 1.0))
                     applyLut(img, RenderMath.brightnessContrastLut(r.brightness, r.contrast))
                     val block = RenderMath.odd(max(img.cols(), img.rows()) / 40.0).coerceAtLeast(3)
                     val c = if (f == FilterType.BW) RenderParams.BW_C else RenderParams.RECEIPT_C
@@ -145,6 +147,20 @@ object PageRenderer {
             Imgproc.adaptiveThreshold(gray, text, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, block, RenderParams.BW_C)
             Imgproc.dilate(text, text, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0)).t())
             text.setTo(Scalar(0.0), color)
+            if (p.scannerLevels) {
+                // «Документ»: уровни как у сканера — чёрная точка по тексту (0.5 %), белая — по фону;
+                // сгибы, зерно бумаги и остатки тени уходят в белое, текст — в насыщенный чёрный.
+                applyLut(gray, RenderMath.scannerLut(hist(gray), p.bgWhite, p.textGamma))
+                val b = Mat().t(); Imgproc.GaussianBlur(gray, b, Size(0.0, 0.0), RenderParams.UNSHARP_SIGMA)
+                Core.addWeighted(gray, 1 + p.sharpen, b, -p.sharpen, 0.0, gray)
+                val out = Mat(); Imgproc.cvtColor(gray, out, Imgproc.COLOR_GRAY2RGB)
+                val ch = ArrayList<Mat>(); Core.split(hsv, ch); tmp += ch
+                ch[1].convertTo(ch[1], -1, p.colorBoost, 0.0)
+                Core.merge(ch, hsv)
+                val ci = Mat().t(); Imgproc.cvtColor(hsv, ci, Imgproc.COLOR_HSV2RGB)
+                ci.copyTo(out, color)
+                return out
+            }
             // Слои
             applyLut(gray, RenderMath.levelsLut(hist(gray)))
             val t = Mat().t()

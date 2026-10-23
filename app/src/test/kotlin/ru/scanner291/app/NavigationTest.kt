@@ -129,10 +129,10 @@ class NavigationTest {
         rule.onNodeWithText("Документы").performClick()
         rule.waitUntil(5_000) { title("Приказ 15") }
         rule.onNodeWithText("Приказ 15").performClick()
-        rule.waitUntil(5_000) { title("1 страница") }
+        rule.waitUntil(5_000) { title("1/1") }          // просмотр «Образ / Word», счётчик страниц
         assertTrue(nav.currentBackStackEntry?.destination?.route?.contains("ViewerRoute") == true)
         // Просмотр → обработка (правка углов)
-        rule.onNodeWithContentDescription("Обработать: углы листа и улучшение").performClick()
+        rule.onNodeWithText("Редактировать").performClick()
         rule.waitUntil(5_000) { title("Найти автоматически") }
         assertTrue(title("Весь лист"))
         assertTrue(id.isNotEmpty())

@@ -16,6 +16,8 @@ import kotlin.math.sqrt
 object RenderMath {
     /** Допуск, в котором пропорции углов считаются совпадающими с форматом режима (измерено: tools/processing-lab). */
     const val ASPECT_SNAP_TOLERANCE = 0.15
+    const val A4 = 210.0 / 297.0
+    const val A4_AUTO_TOLERANCE = 0.08
 
     /**
      * Размер выпрямленного листа по углам в пикселях: максимум длин противоположных сторон.
@@ -26,9 +28,12 @@ object RenderMath {
     fun outputSize(q: Quad, aspectWOverH: Double? = null): Pair<Int, Int> {
         var w = max(hypot(q.tr.x - q.tl.x, q.tr.y - q.tl.y), hypot(q.br.x - q.bl.x, q.br.y - q.bl.y))
         var h = max(hypot(q.bl.x - q.tl.x, q.bl.y - q.tl.y), hypot(q.br.x - q.tr.x, q.br.y - q.tr.y))
-        if (aspectWOverH != null && w > 0 && h > 0) {
-            val a = if ((w <= h) == (aspectWOverH <= 1.0)) aspectWOverH else 1.0 / aspectWOverH
-            if (abs((w / h) / a - 1.0) <= ASPECT_SNAP_TOLERANCE) {
+        // Формат не задан: лист, близкий к A4 (±8 %), приводится к 1:1.414 — так выглядит большинство бумаг
+        val target = aspectWOverH ?: A4
+        val tol = if (aspectWOverH == null) A4_AUTO_TOLERANCE else ASPECT_SNAP_TOLERANCE
+        if (w > 0 && h > 0) {
+            val a = if ((w <= h) == (target <= 1.0)) target else 1.0 / target
+            if (abs((w / h) / a - 1.0) <= tol) {
                 val area = w * h
                 w = sqrt(area * a); h = area / w
             }
@@ -51,6 +56,16 @@ object RenderMath {
         val lo = percentile(hist, loPct); val hi = percentile(hist, hiPct)
         if (hi - lo < 16) return IntArray(256) { it }
         return IntArray(256) { ((it - lo) * 255.0 / (hi - lo)).clamp() }
+    }
+
+    /**
+     * «Документ»: чёрная точка — 0.5-й процентиль (текст), белая — [whiteFraction]·255 (фон), затем гамма.
+     * Всё светлее белой точки — чисто белое (сгибы, зерно, остатки тени). Покрыто тестом.
+     */
+    fun scannerLut(hist: LongArray, whiteFraction: Double, gamma: Double): IntArray {
+        val b = percentile(hist, 0.5)
+        val w = (255 * whiteFraction).toInt().coerceAtLeast(b + 16)
+        return IntArray(256) { v -> (255.0 * Math.pow(((v - b).toDouble() / (w - b)).coerceIn(0.0, 1.0), gamma)).clamp() }
     }
 
     /** Чёрная точка цветного режима: 1-й процентиль яркости, не выше 120 (чтобы не «выжечь» тёмные фото). */
@@ -87,6 +102,8 @@ object RenderParams {
     const val UNSHARP_AMOUNT = 0.5
     const val BW_C = 12.0
     const val RECEIPT_C = 8.0
+    /** Белая точка перед бинаризацией «Ч/Б» и «Чек» (доля 255). */
+    const val BW_WHITE = 0.88
     /** Сторона уменьшенной копии для оценки фона (освещения). */
     const val BACKGROUND_SIDE = 512
 }

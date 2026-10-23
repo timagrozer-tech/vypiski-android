@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="proc_title">Обработка</string>
+    <string name="proc_not_found">Документ не найден</string>
+    <string name="proc_not_found_hint">Откройте отсканированный документ, чтобы выровнять края.</string>
+    <string name="proc_prev_page">Предыдущая страница</string>
+    <string name="proc_next_page">Следующая страница</string>
+    <string name="proc_find_auto">Найти автоматически</string>
+    <string name="proc_full_page">Весь лист</string>
+    <string name="proc_enhance">Улучшение</string>
+    <string name="proc_save">Сохранить</string>
+    <string name="proc_image_failed">Изображение не открылось</string>
+    <string name="proc_image_failed_hint">Файл страницы не удалось прочитать. Оригинал не изменён.</string>
+    <string name="proc_original_shot">Исходный снимок</string>
+    <string name="proc_rotate_left">Повернуть влево</string>
+    <string name="proc_rotate_right">Повернуть вправо</string>
+    <string name="proc_undo">Отменить</string>
+    <string name="proc_redo">Повторить</string>
+    <string name="proc_document_hint">Текст — чёрный, фон — белый, печати и подписи — в своём цвете</string>
+    <string name="proc_shadows">Убрать тени</string>
+    <string name="proc_shadows_hint">Выравнивает освещение листа</string>
+    <string name="proc_denoise">Убрать шум</string>
+    <string name="proc_denoise_hint">Сглаживает зерно камеры</string>
+    <string name="proc_brightness">Яркость</string>
+    <string name="proc_contrast">Контраст</string>
+    <string name="proc_reset">Сбросить</string>
+    <string name="proc_preset_delete_hint">Страницы, к которым он применён, не изменятся.</string>
+    <string name="proc_delete">Удалить</string>
+    <string name="proc_cancel">Отмена</string>
+    <string name="proc_save_preset">Сохранить как мой пресет</string>
+    <string name="proc_my_preset">Мой пресет</string>
+    <string name="proc_preset_name_hint">Название, например «Рапорт — светлый»</string>
+    <string name="proc_page_of">Страница %1$d из %2$d</string>
+    <string name="proc_preset_delete_title">Удалить пресет «%1$s»?</string>
+    <string name="proc_preview_desc">Результат обработки. Удерживайте, чтобы увидеть исходный снимок</string>
+    <string name="proc_corners_desc">Углы листа: перетащите, чтобы поправить</string>
+    <string name="proc_render_time">Обработка: %1$d мс</string>
+</resources>

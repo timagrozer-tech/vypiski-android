@@ -53,6 +53,8 @@ sealed interface ProcessingState {
         val step: ProcessingStep = ProcessingStep.Corners,
         val processed: ImageBitmap? = null,
         val rendering: Boolean = false,
+        /** Время последнего рендера превью на этом телефоне, мс (для честного замера скорости). */
+        val renderMs: Long? = null,
         val previews: Map<FilterType, ImageBitmap> = emptyMap(),
         val userPresets: List<ru.scanner291.core.common.filters.Preset> = emptyList(),
         /** Quality Gate (этап 16): совет, сохранение не блокирует. */
@@ -219,8 +221,10 @@ class ProcessingViewModel @Inject constructor(
         renderJob = viewModelScope.launch {
             if (delayMs > 0) delay(delayMs)
             val cur = _state.value as? ProcessingState.Ready ?: return@launch
+            val t0 = System.currentTimeMillis()
             val bmp = processed.load(cur.page, cur.recipe.copy(corners = cur.corners), cur.mode, perf.budget.value.previewMaxSide)
-            update { it.copy(processed = bmp?.asImageBitmap(), rendering = false, message = if (bmp == null) "Не удалось обработать изображение" else it.message) }
+            val ms = System.currentTimeMillis() - t0
+            update { it.copy(processed = bmp?.asImageBitmap(), rendering = false, renderMs = ms.takeIf { bmp != null && ms > 5 } ?: it.renderMs, message = if (bmp == null) "Не удалось обработать изображение" else it.message) }
         }
     }
 

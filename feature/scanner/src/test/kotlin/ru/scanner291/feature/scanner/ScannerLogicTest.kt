@@ -49,6 +49,20 @@ class ScannerLogicTest {
         val warn = Issue(Check.SKEW, Severity.WARNING, 14.0, "Лист наклонён")
         val err = Issue(Check.SHARPNESS, Severity.ERROR, 10.0, "Снимок размыт")
         assertEquals("Качество плохое: Снимок размыт (ещё замечаний: 1)", qualityLine(QualityReport(Verdict.POOR, listOf(warn, err), emptyMap()))!!.second)
-        assertEquals("Качество допустимо: Лист наклонён", qualityLine(QualityReport(Verdict.ACCEPTABLE, listOf(warn), emptyMap()))!!.second)
+        assertEquals("Лист наклонён", qualityLine(QualityReport(Verdict.ACCEPTABLE, listOf(warn), emptyMap()))!!.second)
+    }
+
+    @Test fun oneStatusAtATime() {
+        val page = ru.scanner291.core.database.PageEntity("p", "d", 0, "x", "s", "image/jpeg", 1, 1, 1, null, 0)
+        val cut = Issue(Check.BORDERS, Severity.WARNING, 2.0, "Низ листа может быть обрезан. Переснимите или продолжите")
+        val base = ProcessingState.Ready("Док", 0, 1, page, ru.scanner291.core.common.model.ScanMode.A4, null,
+            ru.scanner291.core.common.geometry.QuadTransforms.FULL, null, ru.scanner291.core.common.model.PageRecipe(),
+            quality = QualityReport(Verdict.ACCEPTABLE, listOf(cut), emptyMap()), dirty = false, message = null)
+        // Нет действия — показывается замечание (жёлтое), а не ошибка
+        assertEquals(ru.scanner291.designsystem.Status.WARNING to cut.message, processingStatus(base))
+        // После сохранения — только «Сохранено», без противоречивой второй строки
+        assertEquals(ru.scanner291.designsystem.Status.SUCCESS to "Сохранено. Оригинал не изменён",
+            processingStatus(base.copy(message = "Сохранено. Оригинал не изменён")))
+        assertEquals(ru.scanner291.designsystem.Status.WARNING, processingStatus(base.copy(message = "Лист не найден — поправьте углы")).first)
     }
 }

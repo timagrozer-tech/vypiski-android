@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="viewer_title">Просмотр</string>
+    <string name="viewer_tab_image">Образ</string>
+    <string name="viewer_tab_word">Word</string>
+    <string name="viewer_counter">%1$d/%2$d</string>
+    <string name="viewer_not_found">Документ не найден</string>
+    <string name="viewer_not_found_hint">Возможно, он удалён или перемещён в корзину.</string>
+    <string name="viewer_back">Назад</string>
+    <string name="viewer_page_image">Страница %1$d. Сведите или разведите пальцы, чтобы изменить масштаб</string>
+    <string name="viewer_action_rotate">Поворот</string>
+    <string name="viewer_action_edit">Редактировать</string>
+    <string name="viewer_action_extract">Извлечь текст</string>
+    <string name="viewer_action_share">Поделиться</string>
+    <string name="viewer_action_more">Ещё</string>
+    <string name="viewer_more_docx">Сохранить текст в Word (DOCX)…</string>
+    <string name="viewer_more_text">Весь текст документа</string>
+    <string name="viewer_more_export">Экспорт PDF, JPG, PNG…</string>
+    <string name="viewer_word_disclaimer">Текст распознан автоматически и может содержать ошибки. Сомнительные слова подсвечены.</string>
+    <string name="viewer_word_empty">Текст этой страницы ещё не распознан</string>
+    <string name="viewer_word_recognize">Распознать текст</string>
+    <string name="viewer_word_recognizing">Распознаётся…</string>
+    <string name="viewer_word_edited">Текст исправлен вручную — выравнивание по распознаванию недоступно</string>
+    <string name="viewer_rotated_auto">Страница повёрнута автоматически на %1$d°</string>
+    <string name="viewer_docx_saved">Текст сохранён в Word</string>
+    <string name="viewer_docx_failed">Не удалось сохранить: %1$s</string>
+    <string name="viewer_docx_no_text">Сначала распознайте текст страниц</string>
+    <string name="viewer_ocr_failed">Текст не распознан: %1$s</string>
+</resources>

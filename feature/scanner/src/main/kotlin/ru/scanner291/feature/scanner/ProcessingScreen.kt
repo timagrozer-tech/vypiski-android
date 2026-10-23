@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.scanner291.core.common.geometry.Pt
@@ -160,23 +161,23 @@ fun filterNote(f: FilterType): String? = when (f) {
 @Composable
 fun ProcessingScreen(state: ProcessingState, a: ProcessingActions) {
     Column(Modifier.fillMaxSize()) {
-        ScanTopBar(title = "Обработка", onBack = a.onBack)
+        ScanTopBar(title = stringResource(R.string.proc_title), onBack = a.onBack)
         when (state) {
             ProcessingState.Loading ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ScannerTheme.colors.accent) }
             ProcessingState.NotFound ->
-                EmptyState(Icons.Rounded.AutoFixHigh, "Документ не найден", "Откройте отсканированный документ, чтобы выровнять края.")
+                EmptyState(Icons.Rounded.AutoFixHigh, stringResource(R.string.proc_not_found), stringResource(R.string.proc_not_found_hint))
             is ProcessingState.Ready -> {
                 ScanSegmented(ProcessingStep.entries, state.step, { it.title }, a.onStep, Modifier.padding(horizontal = Space.s4))
                 if (state.pageCount > 1) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { a.onOpenPage(state.pageIndex - 1) }, enabled = state.pageIndex > 0) {
-                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Предыдущая страница")
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = stringResource(R.string.proc_prev_page))
                         }
-                        Text("Страница ${state.pageIndex + 1} из ${state.pageCount}", style = Type.label, color = ScannerTheme.colors.text,
+                        Text(stringResource(R.string.proc_page_of, state.pageIndex + 1, state.pageCount), style = Type.label, color = ScannerTheme.colors.text,
                             modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         IconButton(onClick = { a.onOpenPage(state.pageIndex + 1) }, enabled = state.pageIndex < state.pageCount - 1) {
-                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Следующая страница")
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = stringResource(R.string.proc_next_page))
                         }
                     }
                 }
@@ -196,23 +197,22 @@ private fun ColumnScope.CornersStep(state: ProcessingState.Ready, a: ProcessingA
         else ImageMissing()
     }
     Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-        StatusLine(if (state.message != null && state.message.startsWith("Лист не найден")) Status.WARNING else Status.SUCCESS,
-            state.message ?: sourceText(state.source))
-        state.quality?.let { q -> qualityLine(q)?.let { (st, text) -> StatusLine(st, text) } }
+        // Одно актуальное состояние: последнее действие → замечание о качестве → откуда углы
+        processingStatus(state).let { (st, text) -> StatusLine(st, text) }
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
-            ScanButton("Найти автоматически", a.onAuto, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.AutoFixHigh)
-            ScanButton("Весь лист", a.onFull, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.CropFree)
+            ScanButton(stringResource(R.string.proc_find_auto), a.onAuto, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.AutoFixHigh)
+            ScanButton(stringResource(R.string.proc_full_page), a.onFull, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.CropFree)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
-            ScanButton("Улучшение", { a.onStep(ProcessingStep.Enhance) }, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.Tune)
-            ScanButton("Сохранить", a.onSave, Modifier.weight(1f), enabled = state.dirty)
+            ScanButton(stringResource(R.string.proc_enhance), { a.onStep(ProcessingStep.Enhance) }, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.Tune)
+            ScanButton(stringResource(R.string.proc_save), a.onSave, Modifier.weight(1f), enabled = state.image != null)
         }
     }
 }
 
 @Composable
 private fun ImageMissing() {
-    EmptyState(Icons.Rounded.BrokenImage, "Изображение не открылось", "Файл страницы не удалось прочитать. Оригинал не изменён.")
+    EmptyState(Icons.Rounded.BrokenImage, stringResource(R.string.proc_image_failed), stringResource(R.string.proc_image_failed_hint))
 }
 
 @Composable
@@ -220,60 +220,65 @@ private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingA
     val c = ScannerTheme.colors
     val r = state.recipe
     var showOriginal by remember { mutableStateOf(false) }
+    val previewDesc = stringResource(R.string.proc_preview_desc)
     // Превью: результат; удержание пальцем — исходный снимок для сравнения.
     Box(
         Modifier.weight(1f).fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s2)
             .pointerInput(Unit) { detectTapGestures(onPress = { showOriginal = true; tryAwaitRelease(); showOriginal = false }) }
-            .semantics { contentDescription = "Результат обработки. Удерживайте, чтобы увидеть исходный снимок" },
+            .semantics { contentDescription = previewDesc },
         contentAlignment = Alignment.Center,
     ) {
         val shown = if (showOriginal) state.image else state.processed ?: state.image
-        if (shown != null) {
-            androidx.compose.foundation.Image(shown, contentDescription = null, modifier = Modifier.fillMaxSize(),
+        // Плавная смена результата при переключении фильтра — без скачков интерфейса
+        androidx.compose.animation.Crossfade(shown, label = "preview") { img ->
+            if (img != null) androidx.compose.foundation.Image(img, contentDescription = null, modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Fit)
-        } else ImageMissing()
+            else ImageMissing()
+        }
         if (state.rendering) CircularProgressIndicator(Modifier.align(Alignment.TopEnd).size(24.dp), color = c.accent, strokeWidth = 2.dp)
-        if (showOriginal) Text("Исходный снимок", style = Type.captionSm, color = c.text,
+        state.renderMs?.let { ms -> Text(stringResource(R.string.proc_render_time, ms), style = Type.captionSm, color = c.textSecondary,
+            modifier = Modifier.align(Alignment.BottomEnd).background(c.field, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) }
+        if (showOriginal) Text(stringResource(R.string.proc_original_shot), style = Type.captionSm, color = c.text,
             modifier = Modifier.align(Alignment.TopStart).background(c.field, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp))
     }
     // Панель настроек: одна вкладка за раз, высота ограничена — превью остаётся крупным.
     var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(EnhanceTab.Presets) }
     Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { a.onRotate(-90) }) { Icon(Icons.Rounded.RotateLeft, contentDescription = "Повернуть влево") }
-        IconButton(onClick = { a.onRotate(90) }) { Icon(Icons.Rounded.RotateRight, contentDescription = "Повернуть вправо") }
+        IconButton(onClick = { a.onRotate(-90) }) { Icon(Icons.Rounded.RotateLeft, contentDescription = stringResource(R.string.proc_rotate_left)) }
+        IconButton(onClick = { a.onRotate(90) }) { Icon(Icons.Rounded.RotateRight, contentDescription = stringResource(R.string.proc_rotate_right)) }
         ScanSegmented(EnhanceTab.entries, tab, { it.title }, { tab = it }, Modifier.weight(1f))
-        IconButton(onClick = a.onUndo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Отменить") }
-        IconButton(onClick = a.onRedo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Повторить") }
+        IconButton(onClick = a.onUndo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = stringResource(R.string.proc_undo)) }
+        IconButton(onClick = a.onRedo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = stringResource(R.string.proc_redo)) }
     }
     Column(Modifier.heightIn(max = 230.dp).verticalScroll(rememberScrollState()).padding(top = Space.s1)) {
         when (tab) {
             EnhanceTab.Presets -> PresetStrip(state, a)
             EnhanceTab.Filter -> {
-                FilterStrip(FilterType.entries, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
+                FilterStrip(ru.scanner291.core.common.model.FILTER_ORDER, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
                 if (r.filter == FilterType.HYBRID) {
                     ScanSegmented(ru.scanner291.core.common.model.HybridProfile.entries, r.hybrid, { it.title }, a.onHybrid,
                         Modifier.padding(horizontal = Space.s4, vertical = Space.s1))
-                    Text("Текст — чёрный, фон — белый, печати и подписи — в своём цвете", style = Type.caption, color = c.textSecondary,
+                    Text(stringResource(R.string.proc_document_hint), style = Type.caption, color = c.textSecondary,
                         modifier = Modifier.padding(horizontal = Space.s4))
                 }
                 filterNote(r.filter)?.let { Text(it, style = Type.caption, color = c.textSecondary, modifier = Modifier.padding(horizontal = Space.s4)) }
-                ToggleRow("Убрать тени", r.removeShadows, a.onShadows, description = "Выравнивает освещение листа",
+                ToggleRow(stringResource(R.string.proc_shadows), r.removeShadows, a.onShadows, description = stringResource(R.string.proc_shadows_hint),
                     enabled = r.filter.usesShadowRemoval())
-                ToggleRow("Убрать шум", r.denoise, a.onDenoise, description = "Сглаживает зерно камеры", enabled = r.filter.usesDenoise())
+                ToggleRow(stringResource(R.string.proc_denoise), r.denoise, a.onDenoise, description = stringResource(R.string.proc_denoise_hint), enabled = r.filter.usesDenoise())
             }
             EnhanceTab.Manual -> {
-                SliderRow("Яркость", r.brightness, a.onBrightness, -1f..1f, ::brightnessLabel)
-                SliderRow("Контраст", r.contrast, a.onContrast, 0.5f..2f, ::contrastLabel)
+                SliderRow(stringResource(R.string.proc_brightness), r.brightness, a.onBrightness, -1f..1f, ::brightnessLabel)
+                SliderRow(stringResource(R.string.proc_contrast), r.contrast, a.onContrast, 0.5f..2f, ::contrastLabel)
                 ManualParameters(r.adjust, a.onAdjust)
                 SavePresetRow(a.onSavePreset)
             }
         }
     }
     Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-        state.message?.let { StatusLine(if (it.startsWith("Не удалось")) Status.WARNING else Status.SUCCESS, it) }
+        state.message?.let { processingStatus(state).let { (st, text) -> StatusLine(st, text) } }
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
-            ScanButton("Сбросить", a.onReset, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.RestartAlt)
-            ScanButton("Сохранить", a.onSave, Modifier.weight(1f), enabled = state.dirty)
+            ScanButton(stringResource(R.string.proc_reset), a.onReset, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = Icons.Rounded.RestartAlt)
+            ScanButton(stringResource(R.string.proc_save), a.onSave, Modifier.weight(1f), enabled = state.image != null)
         }
     }
 }
@@ -296,7 +301,8 @@ fun CornerEditor(image: ImageBitmap, corners: Quad, onChange: (Quad) -> Unit, mo
     val current by rememberUpdatedState(corners)
     var drag by remember { mutableStateOf(-1) }
     var finger by remember { mutableStateOf(Offset.Zero) }
-    BoxWithConstraints(modifier.semantics { contentDescription = "Углы листа: перетащите, чтобы поправить" }) {
+    val cornersDesc = stringResource(R.string.proc_corners_desc)
+    BoxWithConstraints(modifier.semantics { contentDescription = cornersDesc }) {
         val iw = image.width.toDouble(); val ih = image.height.toDouble()
         Canvas(
             Modifier.fillMaxSize().pointerInput(image) {
@@ -383,10 +389,10 @@ private fun PresetStrip(state: ProcessingState.Ready, a: ProcessingActions) {
     deleting?.let { p ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Удалить пресет «${p.title}»?") },
-            text = { Text("Страницы, к которым он применён, не изменятся.") },
-            confirmButton = { TextButton({ a.onDeletePreset(p.id); deleting = null }) { Text("Удалить") } },
-            dismissButton = { TextButton({ deleting = null }) { Text("Отмена") } },
+            title = { Text(stringResource(R.string.proc_preset_delete_title, p.title)) },
+            text = { Text(stringResource(R.string.proc_preset_delete_hint)) },
+            confirmButton = { TextButton({ a.onDeletePreset(p.id); deleting = null }) { Text(stringResource(R.string.proc_delete)) } },
+            dismissButton = { TextButton({ deleting = null }) { Text(stringResource(R.string.proc_cancel)) } },
         )
     }
 }
@@ -403,21 +409,34 @@ private fun ManualParameters(adj: Adjustments, onAdjust: (String, Float) -> Unit
 private fun SavePresetRow(onSave: (String) -> Unit) {
     var asking by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
-    ScanButton("Сохранить как мой пресет", { asking = true }, Modifier.fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s2),
+    ScanButton(stringResource(R.string.proc_save_preset), { asking = true }, Modifier.fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s2),
         variant = ButtonVariant.Secondary)
     if (asking) AlertDialog(
         onDismissRequest = { asking = false },
-        title = { Text("Мой пресет") },
-        text = { ScanTextField(name, { name = it.take(40) }, "Название, например «Рапорт — светлый»") },
-        confirmButton = { TextButton({ onSave(name); name = ""; asking = false }) { Text("Сохранить") } },
-        dismissButton = { TextButton({ asking = false }) { Text("Отмена") } },
+        title = { Text(stringResource(R.string.proc_my_preset)) },
+        text = { ScanTextField(name, { name = it.take(40) }, stringResource(R.string.proc_preset_name_hint)) },
+        confirmButton = { TextButton({ onSave(name); name = ""; asking = false }) { Text(stringResource(R.string.proc_save)) } },
+        dismissButton = { TextButton({ asking = false }) { Text(stringResource(R.string.proc_cancel)) } },
     )
 }
 
 /** Строка Quality Gate: «Качество: хорошо» или первое замечание; сохранение не блокируется. Покрыто тестом. */
 fun qualityLine(q: ru.scanner291.core.quality.gate.QualityReport): Pair<Status, String>? = when (q.verdict) {
     ru.scanner291.core.quality.gate.Verdict.GOOD -> Status.SUCCESS to "Качество снимка: хорошо"
-    ru.scanner291.core.quality.gate.Verdict.ACCEPTABLE -> Status.WARNING to "Качество допустимо: " + q.issues.first().message
+    ru.scanner291.core.quality.gate.Verdict.ACCEPTABLE -> Status.WARNING to q.issues.first().message
     ru.scanner291.core.quality.gate.Verdict.POOR -> Status.DANGER to "Качество плохое: " + q.issues.first { it.severity == ru.scanner291.core.quality.gate.Severity.ERROR }.message +
         (if (q.issues.size > 1) " (ещё замечаний: ${q.issues.size - 1})" else "")
+}
+
+/**
+ * Строка состояния экрана «Обработка» — всегда одна: результат последнего действия (сохранено, не найдено),
+ * иначе — главное замечание о качестве, иначе — откуда углы. Покрыто тестом.
+ */
+fun processingStatus(s: ProcessingState.Ready): Pair<Status, String> {
+    s.message?.let { m ->
+        val bad = m.startsWith("Лист не найден") || m.startsWith("Не удалось")
+        return (if (bad) Status.WARNING else Status.SUCCESS) to m
+    }
+    s.quality?.let(::qualityLine)?.let { return it }
+    return Status.SUCCESS to sourceText(s.source)
 }
