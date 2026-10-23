@@ -6,19 +6,16 @@ adb shell svc data disable || true
 adb logcat -c || true
 tools/ci/gradle.sh connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
 rc=$?
-# 1) Отчёт детектора из logcat (тег DetectorAccuracy)
-rep=$(adb logcat -d -s DetectorAccuracy:I 2>/dev/null | grep -v '^-----' | sed 's/^.*DetectorAccuracy: //' | tail -1 | tr -d '\r')
-[ -n "$rep" ] && echo "::notice title=Точность поиска документа (эмулятор, синтетический набор)::$rep"
-# 2) Тексты провалов из XML-результатов (на случай, если logcat пуст)
-for x in $(find . -path '*androidTest-results/connected*' -name '*.xml' 2>/dev/null); do
-  python3 - "$x" <<'PY'
-import sys, xml.etree.ElementTree as ET
-t = ET.parse(sys.argv[1])
-for tc in t.iter('testcase'):
-    for f in tc.findall('failure'):
-        msg = (f.get('message') or f.text or '').strip().splitlines()
-        text = ' '.join(msg[:3])[:3000].replace('%', '%25')
-        print(f"::error title=Провал {tc.get('classname','').split('.')[-1]}.{tc.get('name')}::{text}")
-PY
+echo "gradle rc=$rc"
+logs=$(adb logcat -d 2>/dev/null | grep 'DetectorAccuracy' | sed 's/^.*DetectorAccuracy[^:]*: //' | tr -d '\r' | tail -3 | tr '\n' ' ')
+echo "logcat: $logs"
+if [ -n "$logs" ]; then echo "::notice title=Точность поиска документа (эмулятор, синтетический набор)::$logs"; else echo "::notice title=Отчёт детектора::в logcat нет строк DetectorAccuracy"; fi
+files=$(find . -path '*androidTest-results*' -name '*.xml' 2>/dev/null | tr '\n' ' ')
+echo "::notice title=XML результатов инструментальных тестов::${files:-не найдено}"
+for x in $files; do
+  m=$(grep -o 'message="[^"]*"' "$x" | head -2 | cut -c1-2500 | tr '\n' ' ')
+  [ -n "$m" ] && echo "::error title=Провал ($(basename "$x"))::$m"
+  t=$(grep -A3 '<failure' "$x" | head -6 | cut -c1-400 | tr '\n' ' ')
+  [ -n "$t" ] && echo "::error title=Стек провала ($(basename "$x"))::$t"
 done
 exit $rc

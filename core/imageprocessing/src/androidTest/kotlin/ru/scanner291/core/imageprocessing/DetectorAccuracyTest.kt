@@ -31,7 +31,16 @@ class DetectorAccuracyTest {
     private data class Case(val bitmap: Bitmap, val truth: Quad?, val kind: String)
 
     @Test fun syntheticDocuments() {
-        assertTrue("OpenCV не загрузился", OpenCv.ensureLoaded())
+        val loaded = OpenCv.ensureLoaded()
+        if (!loaded) writeReport("OpenCV не загрузился на эмуляторе")
+        assertTrue("OpenCV не загрузился", loaded)
+        try { run() } catch (e: Throwable) {
+            writeReport("Исключение в тесте: ${e::class.java.simpleName}: ${e.message} @ ${e.stackTrace.take(4).joinToString(" < ")}")
+            throw e
+        }
+    }
+
+    private fun run() {
         val rnd = Random(291)
         val positives = (0 until 60).map { makeCase(rnd, it) }
         val negatives = (0 until 15).map { makeNegative(rnd) }
