@@ -58,7 +58,7 @@ androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.re
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 opencv = { module = "org.opencv:opencv", version.ref = "opencv" }
-tesseract4android = { module = "com.github.adaptech-cz:Tesseract4Android", version.ref = "tesseract4android" }
+tesseract4android = { module = "cz.adaptech.tesseract4android:tesseract4android", version.ref = "tesseract4android" }
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfbox" }
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidxJunit" }

@@ -13,7 +13,7 @@ dependencyResolutionManagement {
         // Только для Tesseract4Android (Apache-2.0). Ограничено группой.
         exclusiveContent {
             forRepository { maven("https://jitpack.io") }
-            filter { includeGroup("com.github.adaptech-cz") }
+            filter { includeGroup("cz.adaptech.tesseract4android") }
         }
     }
 }
