@@ -139,5 +139,8 @@ def render(bgr, q, f, rotation=0, shadows=True, dn=True, b=0.0, c=1.0, aspect=No
     elif f in ("BW", "RECEIPT"):
         img = levels(img)
         img = brightness_contrast(img, b, c)
-        return binarize(img, cfg.get("bw", "adaptive"), cfg.get("C", 12) if f == "BW" else cfg.get("Crec", 8))
+        o = binarize(img, cfg.get("bw", "adaptive"), cfg.get("C", 12) if f == "BW" else cfg.get("Crec", 8))
+        if f == "RECEIPT":   # чек: бледная термопечать — штрихи утолщаются (эрозия белого 2×2)
+            o = cv2.erode(o, np.ones((2, 2), np.uint8))
+        return o
     return brightness_contrast(img, b, c)

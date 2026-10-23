@@ -33,4 +33,13 @@ class UserPreferencesTest {
         val m = mutablePreferencesOf(PrefKeys.THEME to "PURPLE")
         assertEquals(ThemeChoice.DARK, m.toUserPreferences().theme)
     }
+
+    @Test fun userPresetsSurviveStorageAndSkipBrokenLines() {
+        val good = ru.scanner291.core.common.filters.Preset.fromRecipe("u:1", "Мой скан",
+            ru.scanner291.core.common.model.PageRecipe(filter = ru.scanner291.core.common.model.FilterType.BW))
+        val m = mutablePreferencesOf(PrefKeys.USER_PRESETS to good.encodeUser() + "\nбитая строка\n")
+        val list = m.toUserPreferences().userPresets
+        assertEquals(1, list.size); assertEquals("Мой скан", list[0].title)
+        assertEquals(0, emptyPreferences().toUserPreferences().userPresets.size)
+    }
 }

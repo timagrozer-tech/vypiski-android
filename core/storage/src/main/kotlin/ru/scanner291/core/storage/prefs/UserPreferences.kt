@@ -28,6 +28,8 @@ data class UserPreferences(
     /** ☑ «Назвать файл по ФИО» — одно состояние для камеры, редактора, сохранения и экспорта. */
     val nameByFio: Boolean = true,
     val watermark: WatermarkSettings = WatermarkSettings.DEFAULT,
+    /** «Мои» пресеты фильтров (этап 9), в порядке создания. */
+    val userPresets: List<ru.scanner291.core.common.filters.Preset> = emptyList(),
 )
 
 internal object PrefKeys {
@@ -39,6 +41,8 @@ internal object PrefKeys {
     val WM_OPACITY = floatPreferencesKey("wm_opacity")
     val WM_FONT_PT = floatPreferencesKey("wm_font_pt")
     val WM_MARGIN_MM = floatPreferencesKey("wm_margin_mm")
+    /** Строки Preset.encodeUser(), по одной на строку. */
+    val USER_PRESETS = stringPreferencesKey("user_presets")
 }
 
 /** Чтение с значениями по умолчанию; повреждённое/неизвестное значение темы → тёмная. Покрыто тестом. */
@@ -56,6 +60,8 @@ fun Preferences.toUserPreferences(): UserPreferences {
         smartNaming = this[PrefKeys.SMART_NAMING] ?: d.smartNaming,
         nameByFio = this[PrefKeys.NAME_BY_FIO] ?: d.nameByFio,
         watermark = wm,
+        userPresets = this[PrefKeys.USER_PRESETS].orEmpty().lines().filter { it.isNotBlank() }
+            .mapNotNull { ru.scanner291.core.common.filters.Preset.decodeUser(it) },
     )
 }
 
@@ -78,6 +84,18 @@ class UserPreferencesRepository @Inject constructor(
         .distinctUntilChanged()
 
     suspend fun setTheme(t: ThemeChoice) = dataStore.edit { it[PrefKeys.THEME] = t.name }
+
+    /** Сохранить «мой» пресет (с тем же id — заменить). Не больше 50. */
+    suspend fun saveUserPreset(p: ru.scanner291.core.common.filters.Preset) = dataStore.edit { prefs ->
+        val list = prefs.toUserPreferences().userPresets.filter { it.id != p.id } + p
+        prefs[PrefKeys.USER_PRESETS] = list.takeLast(50).joinToString("\n") { it.encodeUser().replace('\n', ' ') }
+    }
+
+    /** Удалить «мой» пресет (по явному действию пользователя). */
+    suspend fun deleteUserPreset(id: String) = dataStore.edit { prefs ->
+        val list = prefs.toUserPreferences().userPresets.filter { it.id != id }
+        prefs[PrefKeys.USER_PRESETS] = list.joinToString("\n") { it.encodeUser() }
+    }
     suspend fun setDynamicColor(v: Boolean) = dataStore.edit { it[PrefKeys.DYNAMIC] = v }
     suspend fun setSmartNaming(v: Boolean) = dataStore.edit { it[PrefKeys.SMART_NAMING] = v }
     suspend fun setNameByFio(v: Boolean) = dataStore.edit { it[PrefKeys.NAME_BY_FIO] = v }

@@ -81,6 +81,17 @@ import ru.scanner291.designsystem.Status
 import ru.scanner291.designsystem.StatusLine
 import ru.scanner291.designsystem.Type
 import kotlin.math.hypot
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import ru.scanner291.core.common.filters.Adjustments
+import ru.scanner291.core.common.filters.Preset
+import ru.scanner291.core.common.filters.PresetGroup
+import ru.scanner291.core.common.filters.Presets
+import ru.scanner291.designsystem.ScanChip
+import ru.scanner291.designsystem.ScanTextField
 import kotlin.math.roundToInt
 
 /** Действия экрана обработки (один объект вместо длинного списка параметров). */
@@ -102,6 +113,10 @@ data class ProcessingActions(
     val onRedo: () -> Unit = {},
     val onBack: () -> Unit = {},
     val onHybrid: (ru.scanner291.core.common.model.HybridProfile) -> Unit = {},
+    val onPreset: (Preset) -> Unit = {},
+    val onAdjust: (String, Float) -> Unit = { _, _ -> },
+    val onSavePreset: (String) -> Unit = {},
+    val onDeletePreset: (String) -> Unit = {},
 )
 
 @Composable
@@ -112,6 +127,7 @@ internal fun ProcessingRouteScreen(onBack: () -> Unit, vm: ProcessingViewModel =
         ProcessingActions(
             vm::move, vm::autoDetect, vm::fullPage, vm::save, vm::open, vm::selectStep, vm::setFilter, vm::rotate,
             vm::setShadows, vm::setDenoise, vm::setBrightness, vm::setContrast, vm::reset, vm::undo, vm::redo, onBack, vm::setHybrid,
+            vm::applyPreset, vm::setAdjust, vm::saveAsPreset, vm::deleteUserPreset,
         ),
     )
 }
@@ -216,6 +232,7 @@ private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingA
         if (showOriginal) Text("Исходный снимок", style = Type.captionSm, color = c.text,
             modifier = Modifier.align(Alignment.TopStart).background(c.field, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp))
     }
+    PresetStrip(state, a)
     FilterStrip(FilterType.entries, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
     Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
@@ -237,6 +254,8 @@ private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingA
         ToggleRow("Убрать шум", r.denoise, a.onDenoise, description = "Сглаживает зерно камеры", enabled = r.filter.usesDenoise())
         SliderRow("Яркость", r.brightness, a.onBrightness, -1f..1f, ::brightnessLabel)
         SliderRow("Контраст", r.contrast, a.onContrast, 0.5f..2f, ::contrastLabel)
+        ManualParameters(r.adjust, a.onAdjust)
+        SavePresetRow(a.onSavePreset)
     }
     Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
         state.message?.let { StatusLine(if (it.startsWith("Не удалось")) Status.WARNING else Status.SUCCESS, it) }
@@ -327,4 +346,60 @@ fun CornerEditor(image: ImageBitmap, corners: Quad, onChange: (Quad) -> Unit, mo
             }
         }
     }
+}
+
+/** Значение ручного параметра на экране: −100…+100 (толщина текста — −1/0/+1). Покрыто тестом. */
+fun adjustLabel(spec: Adjustments.Spec, v: Float): String =
+    if (spec.steps > 0) v.roundToInt().let { if (it > 0) "+$it" else if (it < 0) "−${-it}" else "0" } else brightnessLabel(v)
+
+/** Пресеты: группы и пресеты выбранной группы; выбранный подсвечен. «Мои» — удаляются долгим нажатием с подтверждением. */
+@Composable
+private fun PresetStrip(state: ProcessingState.Ready, a: ProcessingActions) {
+    val groups = PresetGroup.entries.filter { it != PresetGroup.USER || state.userPresets.isNotEmpty() }
+    var group by remember { mutableStateOf(PresetGroup.DOCUMENT) }
+    var deleting by remember { mutableStateOf<Preset?>(null) }
+    LazyRow(contentPadding = PaddingValues(horizontal = Space.s4), horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+        items(groups) { g -> ScanChip(g.title, g == group, { group = g }) }
+    }
+    val list = if (group == PresetGroup.USER) state.userPresets else Presets.ALL.filter { it.group == group }
+    LazyRow(Modifier.padding(top = Space.s1), contentPadding = PaddingValues(horizontal = Space.s4), horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+        items(list, key = { it.id }) { p ->
+            val m = if (p.group == PresetGroup.USER) Modifier.pointerInput(p.id) { detectTapGestures(onLongPress = { deleting = p }, onTap = { a.onPreset(p) }) } else Modifier
+            ScanChip(p.title, p.matches(state.recipe), { a.onPreset(p) }, m, checkmark = true)
+        }
+    }
+    deleting?.let { p ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Удалить пресет «${p.title}»?") },
+            text = { Text("Страницы, к которым он применён, не изменятся.") },
+            confirmButton = { TextButton({ a.onDeletePreset(p.id); deleting = null }) { Text("Удалить") } },
+            dismissButton = { TextButton({ deleting = null }) { Text("Отмена") } },
+        )
+    }
+}
+
+/** 16 ручных параметров (с яркостью и контрастом — 18), свёрнуты по умолчанию. */
+@Composable
+private fun ManualParameters(adj: Adjustments, onAdjust: (String, Float) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    ToggleRow("Ручные параметры", open, { open = it }, description = if (adj.isNeutral) "Не изменены" else "Изменены: " + Adjustments.SPECS.count { adj.get(it.key) != 0f })
+    if (open) for (s in Adjustments.SPECS) {
+        SliderRow(s.title, adj.get(s.key), { onAdjust(s.key, it) }, s.min..s.max, { adjustLabel(s, it) }, steps = if (s.steps > 0) 1 else 0)
+    }
+}
+
+@Composable
+private fun SavePresetRow(onSave: (String) -> Unit) {
+    var asking by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    ScanButton("Сохранить как мой пресет", { asking = true }, Modifier.fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s2),
+        variant = ButtonVariant.Secondary)
+    if (asking) AlertDialog(
+        onDismissRequest = { asking = false },
+        title = { Text("Мой пресет") },
+        text = { ScanTextField(name, { name = it.take(40) }, "Название, например «Рапорт — светлый»") },
+        confirmButton = { TextButton({ onSave(name); name = ""; asking = false }) { Text("Сохранить") } },
+        dismissButton = { TextButton({ asking = false }) { Text("Отмена") } },
+    )
 }

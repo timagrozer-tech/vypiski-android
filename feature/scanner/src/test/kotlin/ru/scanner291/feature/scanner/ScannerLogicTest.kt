@@ -30,4 +30,11 @@ class ScannerLogicTest {
         assertEquals(null, filterNote(ru.scanner291.core.common.model.FilterType.TEXT_BOOST))
         assertTrue(filterNote(ru.scanner291.core.common.model.FilterType.PHOTO)!!.contains("Фото"))
     }
+
+    @Test fun adjustLabels() {
+        val tw = ru.scanner291.core.common.filters.Adjustments.SPECS.first { it.key == "tw" }
+        val e = ru.scanner291.core.common.filters.Adjustments.SPECS.first { it.key == "e" }
+        assertEquals("+1", adjustLabel(tw, 1f)); assertEquals("−1", adjustLabel(tw, -1f))
+        assertEquals("+30", adjustLabel(e, 0.3f))
+    }
 }

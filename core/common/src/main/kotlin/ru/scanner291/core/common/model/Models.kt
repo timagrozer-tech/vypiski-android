@@ -100,12 +100,16 @@ data class PageRecipe(
     val denoise: Boolean = true,
     /** Профиль Hybrid HD Pro (используется при filter = HYBRID). */
     val hybrid: HybridProfile = HybridProfile.DOCUMENT,
+    /** Ручные параметры (этап 9) поверх фильтра. */
+    val adjust: ru.scanner291.core.common.filters.Adjustments = ru.scanner291.core.common.filters.Adjustments.NEUTRAL,
+    /** id выбранного пресета (для подсветки на экране); null — настроено вручную. */
+    val preset: String? = null,
     val annotations: List<Annotation> = emptyList(),
     /** Закрашенные (скрытые) области: вырезаются из изображения И из текстового слоя. */
     val redactions: List<NRect> = emptyList(),
 ) {
     fun rotatedBy(deg: Int) = copy(rotation = ((rotation + deg) % 360 + 360) % 360)
-    fun normalized() = copy(brightness = brightness.coerceIn(-1f, 1f), contrast = contrast.coerceIn(0.5f, 2f))
+    fun normalized() = copy(brightness = brightness.coerceIn(-1f, 1f), contrast = contrast.coerceIn(0.5f, 2f), adjust = adjust.normalized())
 }
 
 /** Слово OCR с рамкой в нормализованных координатах обработанной страницы. */

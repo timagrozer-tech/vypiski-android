@@ -105,7 +105,12 @@ object RecipeCodec {
         val n = r.normalized()
         val base = "v1;f=${n.filter.name};r=${n.rotation};b=${fmt(n.brightness)};c=${fmt(n.contrast)};s=${if (n.removeShadows) 1 else 0};n=${if (n.denoise) 1 else 0}"
         // h= пишется только для Hybrid: строки рецептов этапа 7 остаются прежними.
-        return if (n.filter == FilterType.HYBRID) "$base;h=${n.hybrid.name}" else base
+        val sb = StringBuilder(base)
+        if (n.filter == FilterType.HYBRID) sb.append(";h=").append(n.hybrid.name)
+        // a= и p= — только если заданы (этап 9): строки рецептов этапов 7–8 не меняются.
+        if (!n.adjust.isNeutral) sb.append(";a=").append(n.adjust.encode())
+        n.preset?.let { sb.append(";p=").append(it.replace(";", "").replace("=", "")) }
+        return sb.toString()
     }
 
     /** null или повреждённая строка → null (используется рецепт по умолчанию для режима). */
@@ -124,6 +129,8 @@ object RecipeCodec {
                 removeShadows = m.getValue("s") == "1",
                 denoise = m.getValue("n") == "1",
                 hybrid = m["h"]?.let { HybridProfile.valueOf(it) } ?: HybridProfile.DOCUMENT,
+                adjust = ru.scanner291.core.common.filters.decodeAdjustments(m["a"]),
+                preset = m["p"],
             ).normalized().rotatedBy(0)
         }.getOrNull()
     }

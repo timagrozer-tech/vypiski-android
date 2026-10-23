@@ -39,6 +39,19 @@ object PageRenderer {
      * @return новый Bitmap ARGB_8888; null — если OpenCV не загрузился
      */
     fun render(src: Bitmap, recipe: PageRecipe, aspectWOverH: Double? = null): Bitmap? {
+        val out = renderBase(src, recipe, aspectWOverH) ?: return null
+        // Ручные параметры и пресеты (этап 9) — поверх фильтра, чистая математика (AdjustEngine)
+        val adj = recipe.adjust.normalized()
+        if (!adj.isNeutral) {
+            val px = IntArray(out.width * out.height)
+            out.getPixels(px, 0, out.width, 0, 0, out.width, out.height)
+            ru.scanner291.core.common.filters.AdjustEngine.apply(px, out.width, out.height, adj)
+            out.setPixels(px, 0, out.width, 0, 0, out.width, out.height)
+        }
+        return out
+    }
+
+    private fun renderBase(src: Bitmap, recipe: PageRecipe, aspectWOverH: Double?): Bitmap? {
         if (!OpenCv.ensureLoaded()) return null
         val r = recipe.normalized()
         val mats = ArrayList<Mat>()
@@ -91,6 +104,8 @@ object PageRenderer {
                     val block = RenderMath.odd(max(img.cols(), img.rows()) / 40.0).coerceAtLeast(3)
                     val c = if (f == FilterType.BW) RenderParams.BW_C else RenderParams.RECEIPT_C
                     Imgproc.adaptiveThreshold(img, img, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, block, c)
+                    // Чек: бледная термопечать — штрихи утолщаются (эрозия белого 2×2); F1 0.994 против 0.962 у ЧБ
+                    if (f == FilterType.RECEIPT) Imgproc.erode(img, img, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0)).track())
                     return toBitmap(img, mats)
                 }
                 FilterType.HYBRID -> img = hybrid(img, hp).track()

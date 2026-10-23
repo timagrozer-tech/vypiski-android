@@ -54,6 +54,7 @@ sealed interface ProcessingState {
         val processed: ImageBitmap? = null,
         val rendering: Boolean = false,
         val previews: Map<FilterType, ImageBitmap> = emptyMap(),
+        val userPresets: List<ru.scanner291.core.common.filters.Preset> = emptyList(),
         val canUndo: Boolean = false,
         val canRedo: Boolean = false,
         val dirty: Boolean,
@@ -71,6 +72,7 @@ class ProcessingViewModel @Inject constructor(
     private val repo: DocumentRepository,
     private val loader: PageImageLoader,
     private val processed: ProcessedPageLoader,
+    private val prefs: ru.scanner291.core.storage.prefs.UserPreferencesRepository,
     saved: SavedStateHandle,
 ) : ViewModel() {
     private val route = saved.toRoute<ProcessingRoute>()
@@ -80,7 +82,14 @@ class ProcessingViewModel @Inject constructor(
     private var renderJob: Job? = null
     private var previewJob: Job? = null
 
-    init { open(route.pageIndex) }
+    private var userPresets: List<ru.scanner291.core.common.filters.Preset> = emptyList()
+
+    init {
+        open(route.pageIndex)
+        viewModelScope.launch {
+            prefs.preferences.collect { p -> userPresets = p.userPresets; update { it.copy(userPresets = p.userPresets) } }
+        }
+    }
 
     fun open(index: Int) {
         val step = (_state.value as? ProcessingState.Ready)?.step ?: ProcessingStep.Corners
@@ -98,7 +107,7 @@ class ProcessingViewModel @Inject constructor(
             _state.value = ProcessingState.Ready(
                 doc.doc.title, i, pages.size, page, mode, image,
                 stored ?: QuadTransforms.FULL, page.cornersSource?.let { runCatching { CornersSource.valueOf(it) }.getOrNull() },
-                recipe = recipe, step = step, dirty = false, message = null,
+                recipe = recipe, step = step, userPresets = userPresets, dirty = false, message = null,
             )
             if (step == ProcessingStep.Enhance) { render(); renderPreviews() }
         }
@@ -128,8 +137,25 @@ class ProcessingViewModel @Inject constructor(
     }
 
     // ── Улучшение ──
-    fun setFilter(f: FilterType) = edit { it.copy(filter = f) }
+    fun setFilter(f: FilterType) = edit { it.copy(filter = f, preset = null) }
     fun rotate(deg: Int) = edit { it.rotatedBy(deg) }
+    // ── Пресеты и ручные параметры (этап 9) ──
+    fun applyPreset(p: ru.scanner291.core.common.filters.Preset) = edit { p.applyTo(it) }
+    fun setAdjust(key: String, v: Float) = edit(slider = "a:$key") { it.copy(adjust = it.adjust.with(key, v), preset = null) }
+
+    /** Сохранить текущие настройки как «мой» пресет. */
+    fun saveAsPreset(name: String) {
+        val s = _state.value as? ProcessingState.Ready ?: return
+        val p = ru.scanner291.core.common.filters.Preset.fromRecipe("u:" + java.util.UUID.randomUUID().toString().take(8), name, s.recipe)
+        viewModelScope.launch {
+            prefs.saveUserPreset(p)
+            update { it.copy(recipe = it.recipe.copy(preset = p.id), dirty = true, message = "Пресет «${p.title}» сохранён") }
+        }
+    }
+
+    /** Удалить «мой» пресет — только по явному действию (с подтверждением на экране). */
+    fun deleteUserPreset(id: String) { viewModelScope.launch { prefs.deleteUserPreset(id) } }
+
     fun setHybrid(p: ru.scanner291.core.common.model.HybridProfile) = edit { it.copy(hybrid = p) }
     fun setShadows(on: Boolean) = edit { it.copy(removeShadows = on) }
     fun setDenoise(on: Boolean) = edit { it.copy(denoise = on) }
