@@ -151,6 +151,8 @@ fun contrastLabel(v: Float): String = "×" + String.format(java.util.Locale.ROOT
 fun filterNote(f: FilterType): String? = when (f) {
     FilterType.ORIGINAL -> "«Оригинал»: только перспектива, поворот, яркость и контраст"
     FilterType.PHOTO -> "«Фото»: освещение и шум не выравниваются, чтобы сохранить снимок естественным"
+    FilterType.LIGHTEN -> "«Осветлить»: снимок светлее, тени не выравниваются"
+    FilterType.NO_SHADOW -> "«Без теней»: тени убраны, оттенок бумаги сохранён"
     else -> null
 }
 

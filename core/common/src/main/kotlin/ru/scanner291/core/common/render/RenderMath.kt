@@ -68,6 +68,18 @@ object RenderMath {
         return IntArray(256) { v -> (255.0 * Math.pow(((v - b).toDouble() / (w - b)).coerceIn(0.0, 1.0), gamma)).clamp() }
     }
 
+    /**
+     * «Осветлить»: белая точка — 97-й процентиль яркости (бумага), не ниже 160; гамма 0.85 — средние тона светлее.
+     * Свет и тени не выравниваются (lab_cam.py).
+     */
+    fun lightenLut(hist: LongArray): IntArray {
+        val w = maxOf(160, percentile(hist, 97.0)).coerceAtLeast(1)
+        return IntArray(256) { v -> (255.0 * Math.pow((v.toDouble() / w).coerceIn(0.0, 1.0), 0.85)).clamp() }
+    }
+
+    /** «Без теней»: множитель, поднимающий самый светлый канал цвета бумаги не ниже [RenderParams.NO_SHADOW_PAPER]. */
+    fun paperLift(paper: DoubleArray): Double = maxOf(1.0, RenderParams.NO_SHADOW_PAPER / maxOf(paper.max(), 1.0))
+
     /** Чёрная точка цветного режима: 1-й процентиль яркости, не выше 120 (чтобы не «выжечь» тёмные фото). */
     fun blackPointLut(hist: LongArray): IntArray {
         val lo = minOf(percentile(hist, 1.0), 120)
@@ -104,13 +116,22 @@ object RenderParams {
     const val RECEIPT_C = 8.0
     /** Белая точка перед бинаризацией «Ч/Б» и «Чек» (доля 255). */
     const val BW_WHITE = 0.88
+    /** «Без теней»: самый светлый канал бумаги после выравнивания — не ниже (lab_cam.py: фон 224 → 240). */
+    const val NO_SHADOW_PAPER = 240.0
+    /** «Яркий цвет»: белая точка, гамма, усиление насыщенности, нерезкая маска (подбор в lab_cam.py). */
+    const val MAGIC_WHITE = 0.97
+    const val MAGIC_GAMMA = 1.0
+    const val MAGIC_SAT = 1.6
+    const val MAGIC_SHARP = 0.3
     /** Сторона уменьшенной копии для оценки фона (освещения). */
     const val BACKGROUND_SIDE = 512
 }
 
 /** Что делает фильтр: цвет, выравнивание освещения, шумоподавление. Одно место правды для рендера и экрана. */
-fun FilterType.keepsColor(): Boolean = this == FilterType.COLOR || this == FilterType.PHOTO || this == FilterType.BOOK || this == FilterType.ORIGINAL || this == FilterType.HYBRID
-fun FilterType.usesShadowRemoval(): Boolean = this != FilterType.ORIGINAL && this != FilterType.PHOTO
+fun FilterType.keepsColor(): Boolean = this == FilterType.COLOR || this == FilterType.PHOTO || this == FilterType.BOOK || this == FilterType.ORIGINAL ||
+    this == FilterType.HYBRID || this == FilterType.LIGHTEN || this == FilterType.NO_SHADOW || this == FilterType.MAGIC_COLOR
+/** «Осветлить» не выравнивает свет; «Без теней» делает это сам (с сохранением цвета бумаги). */
+fun FilterType.usesShadowRemoval(): Boolean = this != FilterType.ORIGINAL && this != FilterType.PHOTO && this != FilterType.LIGHTEN && this != FilterType.NO_SHADOW
 fun FilterType.usesDenoise(): Boolean = this != FilterType.ORIGINAL && this != FilterType.PHOTO
 
 /**

@@ -30,9 +30,8 @@ class PresetsTest {
         assertTrue("пресетов ${Presets.ALL.size}", Presets.ALL.size >= 30)
         assertEquals(Presets.ALL.size, Presets.ALL.map { it.id }.toSet().size)
         assertEquals(Presets.ALL.size, Presets.ALL.map { it.title }.toSet().size)
-        // 16 параметров Adjustments + яркость и контраст рецепта
-        assertEquals(16, Adjustments.SPECS.size); assertEquals(Adjustments.COUNT, Adjustments.SPECS.size)
-        assertEquals(18, Adjustments.SPECS.size + 2)
+        // 18 параметров Adjustments (16 + муар и цветные пометки) + яркость и контраст рецепта
+        assertEquals(18, Adjustments.SPECS.size); assertEquals(Adjustments.COUNT, Adjustments.SPECS.size)
         assertTrue(FilterType.entries.all { f -> Presets.ALL.any { it.filter == f } })
     }
 

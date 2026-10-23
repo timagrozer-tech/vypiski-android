@@ -111,6 +111,17 @@ object PageRenderer {
                     return toBitmap(img, mats)
                 }
                 FilterType.HYBRID -> img = hybrid(img, hp).track()
+                FilterType.LIGHTEN -> applyLut(img, RenderMath.lightenLut(lumaHist(img)))
+                FilterType.NO_SHADOW -> if (r.removeShadows) removeShadowsKeepPaper(img)
+                FilterType.MAGIC_COLOR -> {
+                    applyLut(img, RenderMath.scannerLut(lumaHist(img), RenderParams.MAGIC_WHITE, RenderParams.MAGIC_GAMMA))
+                    val hsv = Mat().track(); Imgproc.cvtColor(img, hsv, Imgproc.COLOR_RGB2HSV)
+                    val ch = ArrayList<Mat>(); Core.split(hsv, ch); mats += ch
+                    ch[1].convertTo(ch[1], -1, RenderParams.MAGIC_SAT, 0.0)
+                    Core.merge(ch, hsv); Imgproc.cvtColor(hsv, img, Imgproc.COLOR_HSV2RGB)
+                    val b = Mat().track(); Imgproc.GaussianBlur(img, b, Size(0.0, 0.0), RenderParams.UNSHARP_SIGMA)
+                    Core.addWeighted(img, 1 + RenderParams.MAGIC_SHARP, b, -RenderParams.MAGIC_SHARP, 0.0, img)
+                }
                 FilterType.ORIGINAL -> Unit
             }
             // 6. Яркость и контраст пользователя
@@ -215,6 +226,23 @@ object PageRenderer {
         }
         Core.merge(channels, img)
         channels.forEach { it.release() }
+    }
+
+    /**
+     * «Без теней»: деление на фон по каналам и умножение на цвет бумаги (90-й процентиль фона канала, самый
+     * светлый канал поднят до 240) — тень уходит, оттенок бумаги остаётся.
+     */
+    private fun removeShadowsKeepPaper(img: Mat) {
+        val channels = ArrayList<Mat>(); Core.split(img, channels)
+        val bgs = channels.map { background(it) }
+        val paper = DoubleArray(bgs.size) { RenderMath.percentile(hist(bgs[it]), 90.0).toDouble() }
+        val lift = RenderMath.paperLift(paper)
+        for (i in channels.indices) {
+            Core.max(bgs[i], Scalar(1.0), bgs[i])
+            Core.divide(channels[i], bgs[i], channels[i], paper[i] * lift)
+        }
+        Core.merge(channels, img)
+        channels.forEach { it.release() }; bgs.forEach { it.release() }
     }
 
     private fun background(ch: Mat): Mat {

@@ -98,6 +98,12 @@ object Presets {
         p("original_lift", "Оригинал — светлее", PresetGroup.SPECIAL, FilterType.ORIGINAL, Adjustments(exposure = 0.4f, shadows = 0.6f)),
         p("night", "Снимок при слабом свете", PresetGroup.SPECIAL, FilterType.ORIGINAL, Adjustments(exposure = 0.7f, smoothing = 0.8f, shadows = 0.6f)),
         p("drawing", "Чертёж", PresetGroup.SPECIAL, FilterType.GRAY, Adjustments(blackPoint = 1f, sharpness = 1f, textWeight = 1)),
+        // Аналоги CamScanner (2026-10-24): фильтры Magic Color, No Shadow, Lighten и инструменты очистки
+        p("magic_color", "Яркий цвет", PresetGroup.COLOR, FilterType.MAGIC_COLOR),
+        p("no_shadow", "Без теней", PresetGroup.COLOR, FilterType.NO_SHADOW),
+        p("lighten", "Осветлить", PresetGroup.COLOR, FilterType.LIGHTEN),
+        p("doc_no_marks", "Документ без цветных пометок", PresetGroup.DOCUMENT, FilterType.HYBRID, Adjustments(inkRemoval = 1f)),
+        p("halftone", "Журнал, газета (растр)", PresetGroup.SPECIAL, FilterType.COLOR, Adjustments(descreen = 1f)),
     )
 
     fun byId(id: String?, user: List<Preset> = emptyList()): Preset? = id?.let { i -> ALL.firstOrNull { it.id == i } ?: user.firstOrNull { it.id == i } }

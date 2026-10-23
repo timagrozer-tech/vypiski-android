@@ -44,17 +44,22 @@ data class Adjustments(
     val fade: Float = 0f,
     /** Толщина тёмных штрихов: −1 тоньше, +1 толще. */
     val textWeight: Int = 0,
+    /** «Убрать муар и растр» 0..1 (аналог CamScanner: удаление муара / точечного растра). */
+    val descreen: Float = 0f,
+    /** «Убрать цветные пометки» 0..1: ручка, маркер, печать (аналог CamScanner: удаление рукописных пометок). */
+    val inkRemoval: Float = 0f,
 ) {
     val isNeutral: Boolean get() = this == NEUTRAL
 
     fun normalized(): Adjustments = Adjustments(
         c(exposure), c(gamma), c(highlights), c(shadows), c(whitePoint), c(blackPoint), c(saturation), c(vibrance),
         c(warmth), c(tint), c01(sharpness), c01(clarity), c01(smoothing), c01(monochrome), c01(fade), textWeight.coerceIn(-1, 1),
+        c01(descreen), c01(inkRemoval),
     )
 
     companion object {
         val NEUTRAL = Adjustments()
-        const val COUNT = 16
+        const val COUNT = 18
         private fun c(v: Float) = v.coerceIn(-1f, 1f)
         private fun c01(v: Float) = v.coerceIn(0f, 1f)
 
@@ -68,6 +73,7 @@ data class Adjustments(
             Spec("sp", "Резкость", 0f, 1f), Spec("cl", "Чёткость", 0f, 1f),
             Spec("sm", "Сглаживание", 0f, 1f), Spec("mo", "Монохром", 0f, 1f),
             Spec("fa", "Блёклость", 0f, 1f), Spec("tw", "Толщина текста", -1f, 1f, steps = 1),
+            Spec("dm", "Убрать муар и растр", 0f, 1f), Spec("ink", "Убрать цветные пометки и печати", 0f, 1f),
         )
     }
 
@@ -77,6 +83,7 @@ data class Adjustments(
         "e" -> exposure; "g" -> gamma; "hi" -> highlights; "sh" -> shadows; "wp" -> whitePoint; "bp" -> blackPoint
         "sat" -> saturation; "vib" -> vibrance; "wa" -> warmth; "ti" -> tint; "sp" -> sharpness; "cl" -> clarity
         "sm" -> smoothing; "mo" -> monochrome; "fa" -> fade; "tw" -> textWeight.toFloat()
+        "dm" -> descreen; "ink" -> inkRemoval
         else -> error("неизвестный параметр $key")
     }
 
@@ -85,6 +92,7 @@ data class Adjustments(
         "wp" -> copy(whitePoint = v); "bp" -> copy(blackPoint = v); "sat" -> copy(saturation = v); "vib" -> copy(vibrance = v)
         "wa" -> copy(warmth = v); "ti" -> copy(tint = v); "sp" -> copy(sharpness = v); "cl" -> copy(clarity = v)
         "sm" -> copy(smoothing = v); "mo" -> copy(monochrome = v); "fa" -> copy(fade = v); "tw" -> copy(textWeight = v.roundToInt())
+        "dm" -> copy(descreen = v); "ink" -> copy(inkRemoval = v)
         else -> error("неизвестный параметр $key")
     }.normalized()
 
@@ -114,6 +122,12 @@ object AdjustEngine {
         var g = FloatArray(px.size) { ((px[it] shr 8) and 0xFF).toFloat() }
         var b = FloatArray(px.size) { (px[it] and 0xFF).toFloat() }
 
+        // 0. Очистка (аналоги CamScanner, замер tools/processing-lab/lab_cam.py): сначала цветные пометки, затем растр
+        if (a.inkRemoval > 0) removeInk(r, g, b, w, h, a.inkRemoval)
+        if (a.descreen > 0) {
+            val k = a.descreen
+            r = descreen(r, w, h, k); g = descreen(g, w, h, k); b = descreen(b, w, h, k)
+        }
         // 1. Сглаживание (до тональных правок — шум не усиливается)
         if (a.smoothing > 0) {
             val k = a.smoothing
@@ -171,6 +185,49 @@ object AdjustEngine {
     }
 
     private fun q(v: Float) = v.roundToInt().coerceIn(0, 255)
+
+    /**
+     * Муар и растр: среднее 3×3 с силой k (гасит точки печати и муар периода 3–4 px), затем нерезкая маска
+     * радиус 1, сила 0.6·k — края букв возвращаются. Радиус 2+ размывал текст (lab_cam.py: CER до 42 %);
+     * так — шум растровой плашки 38 → 11.6, CER 0.84 → 0.68 %.
+     */
+    fun descreen(c: FloatArray, w: Int, h: Int, k: Float): FloatArray {
+        val bl = boxBlur(c, w, h, 1)
+        val x = FloatArray(c.size) { c[it] + (bl[it] - c[it]) * k }
+        val bl2 = boxBlur(x, w, h, 1)
+        return FloatArray(c.size) { (x[it] + (x[it] - bl2[it]) * 0.6f * k).coerceIn(0f, 255f) }
+    }
+
+    /** Цветные чернила: насыщенность ≥ 0.30, ярче 40 (не чёрный текст), темнее 245 (не бумага). */
+    fun inkMask(r: FloatArray, g: FloatArray, b: FloatArray): BooleanArray = BooleanArray(r.size) {
+        val mx = max(r[it], max(g[it], b[it])); val mn = min(r[it], min(g[it], b[it]))
+        mx > 40f && mx < 245f && (mx - mn) / mx >= 0.30f
+    }
+
+    /**
+     * Цветные пометки: пиксели цветных чернил (+1 px вокруг) заменяются фоном рядом — нормированное среднее
+     * радиусом 7 по пикселям без чернил (нет таких — белое); k — сила смешивания. Убирает и синие печати/подписи:
+     * это выбор пользователя. lab_cam.py: синих пикселей 0.98 → 0, CER печатного текста 3.09 → 1.79 %.
+     */
+    fun removeInk(r: FloatArray, g: FloatArray, b: FloatArray, w: Int, h: Int, k: Float) {
+        val m0 = inkMask(r, g, b)
+        if (m0.none { it }) return
+        val m = FloatArray(m0.size)
+        for (y in 0 until h) for (x in 0 until w) {
+            var hit = false
+            for (dy in -1..1) { for (dx in -1..1) { if (m0[(y + dy).coerceIn(0, h - 1) * w + (x + dx).coerceIn(0, w - 1)]) { hit = true; break } }; if (hit) break }
+            if (hit) m[y * w + x] = 1f
+        }
+        val keep = FloatArray(m.size) { 1f - m[it] }
+        val den = boxBlur(keep, w, h, 7)
+        for (c in listOf(r, g, b)) {
+            val num = boxBlur(FloatArray(c.size) { c[it] * keep[it] }, w, h, 7)
+            for (i in c.indices) if (m[i] > 0f) {
+                val fill = if (den[i] > 0.05f) num[i] / den[i] else 255f
+                c[i] += (fill - c[i]) * k
+            }
+        }
+    }
 
     /** Сепарабельное среднее по окну (2r+1)², края — повтор крайнего пикселя. O(n) на пиксель-канал. */
     fun boxBlur(src: FloatArray, w: Int, h: Int, rad: Int): FloatArray {

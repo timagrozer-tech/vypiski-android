@@ -21,7 +21,7 @@ enum class ScanMode(val title: String, val aspectWOverH: Double?, val defaultFil
 
 /** Пять основных фильтров экрана «Улучшение» (по ТЗ) — первыми; остальные — дальше в ленте. */
 val MAIN_FILTERS: List<FilterType> get() = listOf(FilterType.HYBRID, FilterType.BW, FilterType.GRAY, FilterType.COLOR, FilterType.ORIGINAL)
-val FILTER_ORDER: List<FilterType> get() = MAIN_FILTERS + FilterType.entries.filter { it !in MAIN_FILTERS }
+val FILTER_ORDER: List<FilterType> get() = (MAIN_FILTERS + listOf(FilterType.MAGIC_COLOR, FilterType.NO_SHADOW, FilterType.LIGHTEN)).let { m -> m + FilterType.entries.filter { it !in m } }
 
 enum class FilterType(val title: String) {
     ORIGINAL("Оригинал"),
@@ -34,6 +34,14 @@ enum class FilterType(val title: String) {
     BOOK("Книга"),
     /** Hybrid HD Pro (этап 8): текст чёрный, фон белый, печати и подписи — в своём цвете. */
     HYBRID("Документ"),
+    // Аналоги фильтров CamScanner (2026-10-24), измерены в tools/processing-lab/lab_cam.py. Добавлены в конец —
+    // имена в сохранённых рецептах не меняются.
+    /** Lighten: светлее, свет и тени не выравниваются — похоже на исходный снимок. */
+    LIGHTEN("Осветлить"),
+    /** No Shadow: тени убраны, оттенок бумаги сохранён. */
+    NO_SHADOW("Без теней"),
+    /** Magic Color: белая бумага, сочные цвета везде (логотипы, маркер, фото), резкий текст. */
+    MAGIC_COLOR("Яркий цвет"),
 }
 
 /**
