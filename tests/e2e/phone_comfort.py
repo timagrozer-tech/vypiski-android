@@ -30,13 +30,16 @@ async def main():
     hid=await pg.evaluate("()=>getComputedStyle(document.getElementById('appNav')).display");check('Клавиатура открыта — нижняя панель скрыта',hid=='none',hid)
     await pg.evaluate("()=>document.activeElement.blur()");await pg.set_viewport_size({"width":390,"height":844});await pg.wait_for_timeout(500)
     shown=await pg.evaluate("()=>getComputedStyle(document.getElementById('appNav')).display");check('Клавиатура закрыта — панель снова видна',shown!='none',shown)
-    await pg.evaluate("()=>VypiskiShell.go('templates')");await pg.wait_for_timeout(600);await pg.evaluate("()=>window.scrollTo(0,3000)");await pg.wait_for_timeout(400)
+    await pg.evaluate("()=>document.querySelector(`#appMore [data-sec='settings']`).click()");await pg.wait_for_timeout(600);await pg.evaluate("()=>window.scrollTo(0,3000)");await pg.wait_for_timeout(400)
     v=await pg.evaluate("()=>{const t=document.getElementById('mTop');return !!t&&!t.hidden}");check('Длинный экран — кнопка «наверх»',v)
     if v:
       await pg.click('#mTop');await pg.wait_for_timeout(900);check('«Наверх» поднимает',await pg.evaluate("()=>scrollY<50"))
     await pg.evaluate("()=>VypiskiShell.go('batch')") if False else None
     await pg.evaluate("()=>document.querySelector(`#appMore [data-sec='batch']`).click()");await pg.wait_for_timeout(800)
     chips=await pg.evaluate("()=>[...document.querySelectorAll('#bk .bk-chip')].map(b=>b.textContent)");check('В массовом создании виды без повторов',len(chips)==len(set(chips)),chips)
+    await pg.evaluate("()=>VypiskiShell.go('templates')");await pg.wait_for_timeout(700)
+    secs=await pg.evaluate("()=>[...document.querySelectorAll('#content .sh-form .mg-sec>summary')].map(s=>s.textContent)")
+    check('Шаблон на телефоне — сворачиваемые разделы',secs==['Основное','Выравнивание и шрифт','Поля страницы','Пустые строки и подписи'],secs)
     check('Без ошибок',not errs,errs[:3])
     await b.close()
   print(f'{sum(res)}/{len(res)} passed');sys.exit(0 if all(res) else 1)

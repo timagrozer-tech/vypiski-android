@@ -20,7 +20,7 @@ async def main():
     b=await p.chromium.launch();pg=await b.new_page();errs=[];pg.on("pageerror",lambda e:errs.append(str(e)))
     await pg.goto(f"http://127.0.0.1:{srv.server_address[1]}/index.html");await pg.wait_for_timeout(1500);await login(pg)
     await pg.evaluate("()=>document.querySelector(`[data-sec='import']`).click()");await pg.wait_for_timeout(500)
-    await pg.set_input_files("#wordFiles",sorted(glob.glob(FIX+'/*.docx')));await pg.wait_for_timeout(1500)
+    await pg.set_input_files("#wordFiles",sorted(glob.glob(FIX+'/*.doc*')));await pg.wait_for_timeout(1500)
     await pg.evaluate("()=>[...document.querySelectorAll('#content button.primary')].find(x=>/Импорт/.test(x.textContent)).click()")
     for _ in range(100):
       await pg.wait_for_timeout(300)
@@ -28,7 +28,7 @@ async def main():
     R=await pg.evaluate(JS)
     def fr(k):return R.get(k,{}).get('fr') or []
     st=lambda k:[x[:2] for x in fr(k)]
-    check('Все события собраны',all('fr' in v for v in R.values()) and len(R)==14,{k:v.get('why') for k,v in R.items() if 'why' in v})
+    check('Все события собраны',all('fr' in v for v in R.values()) and len(R)==30,{k:v.get('why') for k,v in R.items() if 'why' in v})
     check('«1. …, стрелку:» + «а)», «б)» — пункт этого человека целиком',st('Альфин|§ 1, п. 1')==['§ ','1.','а)','б)','Ос'],fr('Альфин|§ 1, п. 1'))
     check('«2.1.», «2.2.» входят в пункт 2, чужой «1.» не попадает',st('Бетин|§ 1, п. 2')==['§ ','2.','2.','2.','Ос'],fr('Бетин|§ 1, п. 2'))
     check('Без номеров под «I. В основной отпуск:» — только своя строка и своё основание',[x[:12] for x in fr('Эпсилонов|§ 4')]==['§ 4','Полагать убы','I. В основно','Ефрейтора Эп','Основание: р'],fr('Эпсилонов|§ 4'))
@@ -41,6 +41,15 @@ async def main():
     bl=R.get('Гамов|§ 2, п. 1',{}).get('blocks',[])
     check('Подпись «полковник<Tab>А.Энский» — звание и фамилия отдельно',bl[:3]==['sign-position:КОМАНДИР ВОЙСКОВОЙ ЧАСТИ 55555','sign-rank:полковник','sign-name:А.Энский'],bl)
     check('Подписи не попадают в текст пункта',not any('Энский' in x or 'Штабов' in x for v in R.values() for x in v.get('fr',[])))
+    f=fr('Хиев|§ 5');check('Таблица на нескольких страницах: шапка один раз',len(f)==5 and sum(1 for x in f if x.startswith('№'))==1 and 'Хиев' in f[3],f)
+    f=fr('Сигмин|п. 2');check('Приказ без §: вводная часть, «ПРИКАЗЫВАЮ:» и свой пункт',[x[:6] for x in f]==['В целя','ПРИКАЗ','2. Ряд'],f)
+    check('Двое в одном пункте — предупреждение «групповой пункт»',R.get('Пиев|п. 1',{}).get('others')==1,R.get('Пиев|п. 1'))
+    bl=R.get('Сигмин|п. 2',{}).get('blocks',[]);check('«ВрИО …», «гвардии подполковник»; «М.П.» и «Исп.» не в выписке',bl==['sign-position:ВрИО КОМАНДИРА ВОЙСКОВОЙ ЧАСТИ 55555','sign-rank:гвардии подполковник','sign-name:С.Временный'],bl)
+    check('Word 97 (.doc) с автонумерацией: номер пункта в выписке',fr('Чаев|§ 6, п. 2')[1:2]==['2. Рядовому Чаеву Олегу Ильичу, ЕА-100021, объявить благодарность.'] and fr('Цветов|§ 6, п. 1')[1].startswith('1. Рядовому Цветову'),(fr('Чаев|§ 6, п. 2'),fr('Цветов|§ 6, п. 1')))
+    f=fr('Галкин|§ 3, п. 4');check('Заголовок военкомата в две строки — над своими людьми, чужой заголовок не попадает',[x[:12] for x in f]==['§ 3','Нижепоименов','ИЗ ВОЕННОГО ','И ЛЕСНОГО РА','4. Рядового ','Основание: и'] and 'ЭНСК' not in ' '.join(f),f)
+    f=fr('Бобрин|§ 4, п. 2');check('Строка «дата рождения + личный номер» — часть пункта, не пункт 11',[x[:10] for x in f]==['§ 4','Нижепоимен','ИЗ ВОЕННОГ','2. Ефрейто','11.11.1991','Основание:'],f)
+    f=fr('Волчин|§ 5, п. 2');check('«1. Нижепоименованный личный состав …:» над автонумерованным списком — у каждого',[x[:10] for x in f]==['§ 5','Полагать у','1. Нижепои','с 11 ноябр','2. Рядовог','Основание:'],f)
+    check('Общее «Основание:» в конце группы — у каждого из группы',all(any(x.startswith('Основание') for x in fr(k)) for k in ['Аистов|§ 3, п. 1','Бобрин|§ 3, п. 2','Аистов|§ 4, п. 1','Аистов|§ 5, п. 1']))
     check('Без ошибок',not errs,errs[:3])
     await b.close()
   print(f'{sum(res)}/{len(res)} passed');sys.exit(0 if all(res) else 1)
