@@ -97,7 +97,7 @@ class NavigationTest {
     @Test fun documentScopedScreensOpenAndReportMissingDocument() {
         val screens = listOf(
             ProcessingRoute("x") to "Обработка", EditorRoute("x") to "Редактор страниц",
-            OcrRoute("x") to "Распознанный текст", FioRoute("x") to "Определение ФИО", ViewerRoute("x") to "Просмотр",
+            OcrRoute("x") to "Распознанный текст", FioRoute("x") to "Определение ФИО", ViewerRoute("x") to "Образ",
         )
         for ((route, t) in screens) {
             rule.runOnUiThread { nav.navigate(route) }
