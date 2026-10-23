@@ -82,4 +82,22 @@ class PdfEngineTest {
         assertEquals(Color.WHITE, src.getPixel(50, 50))
         assertTrue(Color.red(out.getPixel(50, 50)) < 50)
     }
+
+    /** ТЗ: закрашивание — настоящее удаление: текст из закрашенной области не находится в PDF. */
+    @Test fun redactedTextIsNotInPdf() {
+        val words = listOf(
+            OcrWord("Паспорт", NRect(0.1f, 0.10f, 0.4f, 0.15f), 0.9f),
+            OcrWord("4512345678", NRect(0.45f, 0.10f, 0.9f, 0.15f), 0.9f),
+            OcrWord("Справка", NRect(0.1f, 0.30f, 0.5f, 0.35f), 0.9f),
+        )
+        val area = listOf(NRect(0.44f, 0.08f, 0.95f, 0.17f))
+        val kept = ru.scanner291.core.common.model.Redaction.filterWords(words, area)
+        val bmp = Bitmap.createBitmap(200, 280, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
+        val red = AnnotationRenderer.redact(bmp, area)
+        assertEquals(Color.BLACK, red.getPixel((0.7f * 200).toInt(), (0.12f * 280).toInt()))
+        val f = File(tmp.root, "red.pdf"); engine.create(listOf(PdfPageInput(red, 25.4f, kept, jpegQuality = null)), f)
+        val t = engine.pageTexts(f).single()
+        assertTrue(t, t.contains("Паспорт") && t.contains("Справка"))
+        assertTrue("номер из закрашенной области не должен находиться: $t", !t.contains("4512345678"))
+    }
 }

@@ -118,6 +118,19 @@ jobs:
           done | tee elf.txt
           echo "::notice title=ELF LOAD align (arm64)::$(tr '\n' ';' < elf.txt)"
 
+      - name: Публикация Debug APK в предрелиз scanner291-latest (для установки на телефон)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/scanner291'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd app/build/outputs/apk/debug
+          NOTES="Отладочная сборка из ветки scanner291, коммит ${GITHUB_SHA::7}. Для телефона — app-arm64-v8a-debug.apk (или universal). SHA-256 — в SHA256SUMS.txt. Не подписана ключом выпуска."
+          gh release delete scanner291-latest -R "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create scanner291-latest -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "291 Сканер — отладочная сборка ${GITHUB_SHA::7}" --notes "$NOTES" \
+            *.apk SHA256SUMS.txt
+          echo "::notice title=APK для телефона::https://github.com/$GITHUB_REPOSITORY/releases/tag/scanner291-latest"
+
       - name: Артефакт Debug APK
         uses: actions/upload-artifact@v4
         with:

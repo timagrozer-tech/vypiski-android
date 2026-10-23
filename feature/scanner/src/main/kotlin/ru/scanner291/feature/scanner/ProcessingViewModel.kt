@@ -75,6 +75,7 @@ class ProcessingViewModel @Inject constructor(
     private val loader: PageImageLoader,
     private val processed: ProcessedPageLoader,
     private val prefs: ru.scanner291.core.storage.prefs.UserPreferencesRepository,
+    private val perf: ru.scanner291.core.performance.AdaptivePerformance,
     saved: SavedStateHandle,
 ) : ViewModel() {
     private val route = saved.toRoute<ProcessingRoute>()
@@ -210,7 +211,7 @@ class ProcessingViewModel @Inject constructor(
         render(if (slider != null) 150 else 0)
     }
 
-    /** Превью результата (сторона 1400). Предыдущий незавершённый рендер отменяется. */
+    /** Превью результата (сторона — по бюджету устройства: 1024–1800). Предыдущий незавершённый рендер отменяется. */
     private fun render(delayMs: Long = 0) {
         if (_state.value !is ProcessingState.Ready) return
         renderJob?.cancel()
@@ -218,7 +219,7 @@ class ProcessingViewModel @Inject constructor(
         renderJob = viewModelScope.launch {
             if (delayMs > 0) delay(delayMs)
             val cur = _state.value as? ProcessingState.Ready ?: return@launch
-            val bmp = processed.load(cur.page, cur.recipe.copy(corners = cur.corners), cur.mode, 1400)
+            val bmp = processed.load(cur.page, cur.recipe.copy(corners = cur.corners), cur.mode, perf.budget.value.previewMaxSide)
             update { it.copy(processed = bmp?.asImageBitmap(), rendering = false, message = if (bmp == null) "Не удалось обработать изображение" else it.message) }
         }
     }

@@ -60,6 +60,7 @@ class ExportService @Inject constructor(
     private val loader: PageImageLoader,
     private val processed: ProcessedPageLoader,
     private val prefs: UserPreferencesRepository,
+    private val perf: ru.scanner291.core.performance.AdaptivePerformance,
 ) {
     private val pdf by lazy { PdfEngine(context) }
     private fun workDir() = File(context.cacheDir, "export/${UUID.randomUUID()}").apply { mkdirs() }
@@ -91,7 +92,8 @@ class ExportService @Inject constructor(
         val nativeLong = max(p.width, p.height).coerceAtLeast(1)
         val wMm = ExportMath.pageWidthMm(aspect, p.width.coerceAtLeast(1), p.height.coerceAtLeast(1))
         val longMm = if (p.width <= p.height) wMm * p.height / p.width.coerceAtLeast(1) else wMm
-        return ExportMath.targetLongSide(profile, longMm, nativeLong)
+        // Слабое устройство: сторона не больше 3000 px (страница ARGB 4200×5900 = 99 МБ — риск нехватки памяти)
+        return minOf(ExportMath.targetLongSide(profile, longMm, nativeLong), perf.budget.value.exportMaxLongSide)
     }
 
     /** Подготовленная страница: изображение, слова (с учётом закрашивания и поля знака), dpi. */

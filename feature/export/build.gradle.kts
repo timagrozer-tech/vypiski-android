@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":core:imageprocessing"))
     implementation(project(":core:ocr"))
     implementation(project(":core:intelligence"))
+    implementation(project(":core:performance"))
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.core.ktx)

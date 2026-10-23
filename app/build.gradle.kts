@@ -28,8 +28,8 @@ android {
 
     defaultConfig {
         applicationId = "ru.scanner291"
-        versionCode = 7
-        versionName = "0.7.0-stage7"
+        versionCode = 22
+        versionName = "0.22.0"
     }
 
     signingConfigs {

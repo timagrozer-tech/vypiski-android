@@ -12,4 +12,5 @@ dependencies {
     implementation(project(":core:intelligence"))
     implementation(project(":core:imageprocessing"))
     implementation(project(":core:quality"))
+    implementation(project(":core:performance"))
 }
