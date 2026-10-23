@@ -19,12 +19,25 @@
     "appId": "ru.vypiski.desktop",
     "productName": "Vypiski",
     "copyright": "Выписки",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "sources.js", "app/**/*", "build/icon.png", "package.json"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "sources.js",
+      "app/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
     "asar": true,
     "win": {
       "icon": "build/icon.ico",
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "executableName": "Vypiski",
       "artifactName": "Vypiski-${version}-${arch}.${ext}"
     },
@@ -42,6 +55,11 @@
     },
     "portable": {
       "artifactName": "Vypiski-Portable-${version}.${ext}"
-    }
+    },
+    "electronLanguages": [
+      "ru",
+      "en-US"
+    ],
+    "compression": "maximum"
   }
 }
