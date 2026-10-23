@@ -108,7 +108,7 @@ GitHub и позволяет незаметно получить другую в
 
 **Решение.** Файлы `rus/eng/osd.traineddata` (tessdata_fast, коммит
 `87416418657359cb625c412a48b6e1d6d41c29bd`, 18,5 МБ всего) лежат в
-`core/ocr/src/main/assets/tessdata/`. Ожидаемые SHA-256 — в `core/ocr/tessdata.sha256`.
+`core/ocr/src/main/assets/tessdata/`. Ожидаемые SHA-256 — в `core/ocr/src/main/assets/tessdata.sha256`.
 Задача `:core:ocr:verifyTessdata` подключена к `preBuild` и проваливает сборку при отсутствии
 или несовпадении файла. Ассеты не сжимаются (`noCompress`), чтобы копирование при первом
 запуске было быстрым.

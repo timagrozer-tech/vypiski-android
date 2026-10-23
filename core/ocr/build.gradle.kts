@@ -1,6 +1,7 @@
 import java.security.MessageDigest
 plugins {
     alias(libs.plugins.scanner291.android.library)
+    alias(libs.plugins.scanner291.hilt)
 }
 
 android {
@@ -12,8 +13,18 @@ android {
 
 dependencies {
     api(project(":core:common"))
+    api(project(":core:storage"))
+    implementation(project(":core:imageprocessing"))
     implementation(libs.tesseract4android)
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+}
+
+android {
+    testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
 /**
@@ -48,7 +59,7 @@ abstract class VerifyTessdataTask : DefaultTask() {
 
 val verifyTessdata = tasks.register<VerifyTessdataTask>("verifyTessdata") {
     group = "verification"
-    checksums.set(layout.projectDirectory.file("tessdata.sha256"))
+    checksums.set(layout.projectDirectory.file("src/main/assets/tessdata.sha256"))
     tessdataDir.set(layout.projectDirectory.dir("src/main/assets/tessdata"))
 }
 tasks.named("preBuild") { dependsOn(verifyTessdata) }

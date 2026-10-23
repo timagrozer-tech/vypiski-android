@@ -69,3 +69,40 @@ data class DocumentWithPages(
 ) {
     val orderedPages: List<PageEntity> get() = pages.sortedBy { it.position }
 }
+
+/**
+ * Текстовый слой страницы (этап 10): распознанный (или исправленный пользователем) текст и слова
+ * с рамками. [words] — строки «текст\tl,t,r,b\tуверенность» (нормализованные координаты обработанной страницы).
+ * [recipeKey] — рецепт, по которому распознано: если страницу обработали иначе, текст помечается устаревшим.
+ */
+@Entity(
+    tableName = "page_text",
+    foreignKeys = [ForeignKey(entity = PageEntity::class, parentColumns = ["id"], childColumns = ["pageId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("docId")],
+)
+data class PageTextEntity(
+    @PrimaryKey val pageId: String,
+    val docId: String,
+    val text: String,
+    val words: String,
+    /** OcrMode.name */
+    val mode: String,
+    val recipeKey: String,
+    /** Текст исправлен вручную. */
+    val edited: Boolean,
+    val createdAt: Long,
+    val durationMs: Long,
+)
+
+/** Полнотекстовый индекс (FTS4, unicode61 — регистр кириллицы не важен). Хранит копию текста страницы. */
+@androidx.room.Fts4(tokenizer = androidx.room.FtsOptions.TOKENIZER_UNICODE61, notIndexed = ["pageId", "docId"])
+@Entity(tableName = "page_text_fts")
+data class PageTextFts(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "rowid") val rowId: Int = 0,
+    val pageId: String,
+    val docId: String,
+    val text: String,
+)
+
+/** Результат поиска по тексту: страница и фрагмент с [выделением]. */
+data class TextHit(val pageId: String, val docId: String, val snippet: String)

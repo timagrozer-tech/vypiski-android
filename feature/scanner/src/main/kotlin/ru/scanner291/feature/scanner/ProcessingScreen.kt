@@ -94,6 +94,9 @@ import ru.scanner291.designsystem.ScanChip
 import ru.scanner291.designsystem.ScanTextField
 import kotlin.math.roundToInt
 
+/** Вкладки панели «Улучшение». */
+enum class EnhanceTab(val title: String) { Presets("Пресеты"), Filter("Фильтр"), Manual("Вручную") }
+
 /** Действия экрана обработки (один объект вместо длинного списка параметров). */
 data class ProcessingActions(
     val onMove: (Quad) -> Unit = {},
@@ -232,30 +235,38 @@ private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingA
         if (showOriginal) Text("Исходный снимок", style = Type.captionSm, color = c.text,
             modifier = Modifier.align(Alignment.TopStart).background(c.field, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp))
     }
-    PresetStrip(state, a)
-    FilterStrip(FilterType.entries, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
-    Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { a.onRotate(-90) }) { Icon(Icons.Rounded.RotateLeft, contentDescription = "Повернуть влево") }
-            IconButton(onClick = { a.onRotate(90) }) { Icon(Icons.Rounded.RotateRight, contentDescription = "Повернуть вправо") }
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = a.onUndo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Отменить") }
-            IconButton(onClick = a.onRedo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Повторить") }
+    // Панель настроек: одна вкладка за раз, высота ограничена — превью остаётся крупным.
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(EnhanceTab.Presets) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { a.onRotate(-90) }) { Icon(Icons.Rounded.RotateLeft, contentDescription = "Повернуть влево") }
+        IconButton(onClick = { a.onRotate(90) }) { Icon(Icons.Rounded.RotateRight, contentDescription = "Повернуть вправо") }
+        ScanSegmented(EnhanceTab.entries, tab, { it.title }, { tab = it }, Modifier.weight(1f))
+        IconButton(onClick = a.onUndo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Отменить") }
+        IconButton(onClick = a.onRedo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Повторить") }
+    }
+    Column(Modifier.heightIn(max = 230.dp).verticalScroll(rememberScrollState()).padding(top = Space.s1)) {
+        when (tab) {
+            EnhanceTab.Presets -> PresetStrip(state, a)
+            EnhanceTab.Filter -> {
+                FilterStrip(FilterType.entries, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
+                if (r.filter == FilterType.HYBRID) {
+                    ScanSegmented(ru.scanner291.core.common.model.HybridProfile.entries, r.hybrid, { it.title }, a.onHybrid,
+                        Modifier.padding(horizontal = Space.s4, vertical = Space.s1))
+                    Text("Текст — чёрный, фон — белый, печати и подписи — в своём цвете", style = Type.caption, color = c.textSecondary,
+                        modifier = Modifier.padding(horizontal = Space.s4))
+                }
+                filterNote(r.filter)?.let { Text(it, style = Type.caption, color = c.textSecondary, modifier = Modifier.padding(horizontal = Space.s4)) }
+                ToggleRow("Убрать тени", r.removeShadows, a.onShadows, description = "Выравнивает освещение листа",
+                    enabled = r.filter.usesShadowRemoval())
+                ToggleRow("Убрать шум", r.denoise, a.onDenoise, description = "Сглаживает зерно камеры", enabled = r.filter.usesDenoise())
+            }
+            EnhanceTab.Manual -> {
+                SliderRow("Яркость", r.brightness, a.onBrightness, -1f..1f, ::brightnessLabel)
+                SliderRow("Контраст", r.contrast, a.onContrast, 0.5f..2f, ::contrastLabel)
+                ManualParameters(r.adjust, a.onAdjust)
+                SavePresetRow(a.onSavePreset)
+            }
         }
-        if (r.filter == FilterType.HYBRID) {
-            ScanSegmented(ru.scanner291.core.common.model.HybridProfile.entries, r.hybrid, { it.title }, a.onHybrid,
-                Modifier.padding(horizontal = Space.s4, vertical = Space.s1))
-            Text("Текст — чёрный, фон — белый, печати и подписи — в своём цвете", style = Type.caption, color = c.textSecondary,
-                modifier = Modifier.padding(horizontal = Space.s4))
-        }
-        filterNote(r.filter)?.let { Text(it, style = Type.caption, color = c.textSecondary, modifier = Modifier.padding(horizontal = Space.s4)) }
-        ToggleRow("Убрать тени", r.removeShadows, a.onShadows, description = "Выравнивает освещение листа",
-            enabled = r.filter.usesShadowRemoval())
-        ToggleRow("Убрать шум", r.denoise, a.onDenoise, description = "Сглаживает зерно камеры", enabled = r.filter.usesDenoise())
-        SliderRow("Яркость", r.brightness, a.onBrightness, -1f..1f, ::brightnessLabel)
-        SliderRow("Контраст", r.contrast, a.onContrast, 0.5f..2f, ::contrastLabel)
-        ManualParameters(r.adjust, a.onAdjust)
-        SavePresetRow(a.onSavePreset)
     }
     Column(Modifier.navigationBarsPadding().padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
         state.message?.let { StatusLine(if (it.startsWith("Не удалось")) Status.WARNING else Status.SUCCESS, it) }
@@ -379,12 +390,10 @@ private fun PresetStrip(state: ProcessingState.Ready, a: ProcessingActions) {
     }
 }
 
-/** 16 ручных параметров (с яркостью и контрастом — 18), свёрнуты по умолчанию. */
+/** 16 ручных параметров (с яркостью и контрастом — 18). */
 @Composable
 private fun ManualParameters(adj: Adjustments, onAdjust: (String, Float) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    ToggleRow("Ручные параметры", open, { open = it }, description = if (adj.isNeutral) "Не изменены" else "Изменены: " + Adjustments.SPECS.count { adj.get(it.key) != 0f })
-    if (open) for (s in Adjustments.SPECS) {
+    for (s in Adjustments.SPECS) {
         SliderRow(s.title, adj.get(s.key), { onAdjust(s.key, it) }, s.min..s.max, { adjustLabel(s, it) }, steps = if (s.steps > 0) 1 else 0)
     }
 }

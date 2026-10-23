@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -48,6 +49,17 @@ class MigrationTest {
             room.documentDao().setRecipe("p1", "v1;f=BW;r=90;b=0.00;c=1.00;s=1;n=1")
             assertEquals("v1;f=BW;r=90;b=0.00;c=1.00;s=1;n=1", room.documentDao().page("p1")!!.recipe)
             assertEquals("Рапорт Иванова", room.documentDao().document("d1")!!.doc.title)
+            // v4: текстовый слой и поиск без учёта регистра кириллицы, по началу слова
+            val dao = room.documentDao()
+            dao.saveText(PageTextEntity("p1", "d1", "Рапорт об отпуске. Ефрейтор Иванов Иван Иванович", "", "FAST", "k", false, 1, 10))
+            assertEquals(1, dao.searchText("иванов*").size)
+            assertEquals(1, dao.searchText("ОТПУСК*").size)
+            assertEquals(0, dao.searchText("петров*").size)
+            assertTrue(dao.searchText("ефрейтор*").single().snippet.contains("[Ефрейтор]"))
+            // повторное сохранение не дублирует индекс
+            dao.saveText(PageTextEntity("p1", "d1", "Исправленный текст", "", "FAST", "k", true, 2, 0))
+            assertEquals(0, dao.searchText("иванов*").size); assertEquals(1, dao.searchText("исправлен*").size)
+            assertEquals(1, dao.allDocuments().size)
         } finally {
             room.close()
             ctx.deleteDatabase(name)

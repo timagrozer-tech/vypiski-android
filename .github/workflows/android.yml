@@ -164,6 +164,21 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back emulated
           script: tools/ci/emulator-tests.sh
 
+  ocr-pack:
+    name: Пакет OCR «Высокая точность»
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Сборка пакета (суммы сверяются с закреплёнными в приложении)
+        run: tools/ocr-lab/make_best_pack.sh build/ocr-pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scanner291-ocr-best
+          path: build/ocr-pack/scanner291-ocr-best.zip
+          if-no-files-found: error
+
   release:
     name: Подписанный Release APK
     runs-on: ubuntu-latest

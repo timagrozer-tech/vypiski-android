@@ -6,10 +6,10 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
- * Индекс документов. v1 — этап 5 (документы и страницы), v2 — этап 6 (углы листа), v3 — этап 7 (рецепт обработки). Папки, теги, FTS OCR, корзина —
+ * Индекс документов. v1 — этап 5 (документы и страницы), v2 — этап 6 (углы листа), v3 — этап 7 (рецепт обработки), v4 — этап 10 (текстовый слой и FTS). Папки, теги, FTS OCR, корзина —
  * этапы 10 и 14 через миграции (схемы — в core/database/schemas, сравниваются тестом миграций).
  */
-@Database(entities = [DocumentEntity::class, PageEntity::class], version = 3, exportSchema = true)
+@Database(entities = [DocumentEntity::class, PageEntity::class, PageTextEntity::class, PageTextFts::class], version = 4, exportSchema = true)
 abstract class ScannerDatabase : RoomDatabase() {
     abstract fun documentDao(): DocumentDao
 
@@ -27,6 +27,14 @@ abstract class ScannerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE pages ADD COLUMN recipe TEXT")
             }
         }
-        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+        /** v3 → v4 (этап 10): текстовый слой страниц и полнотекстовый индекс. Только новые таблицы. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `page_text` (`pageId` TEXT NOT NULL, `docId` TEXT NOT NULL, `text` TEXT NOT NULL, `words` TEXT NOT NULL, `mode` TEXT NOT NULL, `recipeKey` TEXT NOT NULL, `edited` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, PRIMARY KEY(`pageId`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_page_text_docId` ON `page_text` (`docId`)")
+                db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `page_text_fts` USING FTS4(`pageId` TEXT NOT NULL, `docId` TEXT NOT NULL, `text` TEXT NOT NULL, tokenize=unicode61, notindexed=`pageId`, notindexed=`docId`)")
+            }
+        }
+        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
     }
 }

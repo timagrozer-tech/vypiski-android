@@ -61,4 +61,42 @@ interface DocumentDao {
 
     @Query("SELECT * FROM documents ORDER BY updatedAt DESC LIMIT 1")
     suspend fun latest(): DocumentEntity?
+
+    // ── Текстовый слой и поиск (этап 10) ──
+    @androidx.room.Upsert
+    suspend fun upsertText(t: PageTextEntity)
+
+    @Query("DELETE FROM page_text_fts WHERE pageId = :pageId")
+    suspend fun deleteFts(pageId: String)
+
+    @androidx.room.Insert
+    suspend fun insertFts(f: PageTextFts)
+
+    /** Текст страницы и индекс обновляются вместе. */
+    @Transaction
+    suspend fun saveText(t: PageTextEntity) {
+        upsertText(t)
+        deleteFts(t.pageId)
+        insertFts(PageTextFts(pageId = t.pageId, docId = t.docId, text = t.text))
+    }
+
+    @Query("SELECT * FROM page_text WHERE docId = :docId")
+    fun observeTexts(docId: String): Flow<List<PageTextEntity>>
+
+    @Query("SELECT * FROM page_text WHERE pageId = :pageId")
+    suspend fun text(pageId: String): PageTextEntity?
+
+    /**
+     * Поиск по тексту: [match] — выражение FTS (слова с «*» на конце). Только страницы, которые есть в БД
+     * (удалённые в корзину не находятся). Фрагмент — до 12 слов вокруг совпадения.
+     */
+    @Query(
+        "SELECT f.pageId AS pageId, f.docId AS docId, snippet(page_text_fts, '[', ']', '…', 2, 12) AS snippet " +
+            "FROM page_text_fts f JOIN pages p ON p.id = f.pageId WHERE page_text_fts MATCH :match LIMIT 200",
+    )
+    suspend fun searchText(match: String): List<TextHit>
+
+    /** Все документы (поиск по названию — в Kotlin: LIKE в SQLite не различает регистр только для латиницы). */
+    @Query("SELECT * FROM documents ORDER BY updatedAt DESC")
+    suspend fun allDocuments(): List<DocumentEntity>
 }

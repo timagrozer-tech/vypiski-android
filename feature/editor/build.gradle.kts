@@ -5,3 +5,7 @@ plugins {
 android {
     namespace = "ru.scanner291.feature.editor"
 }
+dependencies {
+    implementation(project(":core:storage"))
+    implementation(project(":core:ocr"))
+}

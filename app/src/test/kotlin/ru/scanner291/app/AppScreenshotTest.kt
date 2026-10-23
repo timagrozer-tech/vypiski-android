@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -28,6 +29,7 @@ import ru.scanner291.core.database.CornersSource
 import ru.scanner291.core.database.DocumentSource
 import ru.scanner291.core.storage.DocumentPaths
 import ru.scanner291.core.storage.DocumentRepository
+import ru.scanner291.core.storage.recipeFor
 import ru.scanner291.designsystem.ScannerTheme
 import ru.scanner291.designsystem.ThemeMode
 import ru.scanner291.feature.batch.BatchSaveRoute
@@ -151,6 +153,9 @@ class AppScreenshotTest {
         repo.addCapturedPage(id, photo("СПРАВКА (оборот)", text.take(4)).first)
         val page = repo.document(id)!!.orderedPages.first()
         repo.setCorners(page.id, q1, CornersSource.AUTO)
+        // Текстовый слой (как после OCR) — для снимков «Распознанный текст» и «Поиск»
+        val key = ru.scanner291.core.common.render.RecipeCodec.cacheKey(repo.page(page.id)!!.recipeFor(ScanMode.CERTIFICATE))
+        repo.saveText(ru.scanner291.core.database.PageTextEntity(page.id, id, "СПРАВКА\n" + text.joinToString("\n"), "", "FAST", key, false, 0, 1840))
         id
     }
 
@@ -191,6 +196,9 @@ class AppScreenshotTest {
         go(CameraRoute); shot("06-camera", "Назвать файл по ФИО")
         back()
         go(SearchRoute); shot("07-search")
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("иванов")
+        rule.mainClock.advanceTimeBy(400)
+        shot("07b-search-results", "В тексте документов")
         go(SettingsRoute); shot("08-settings", "Водяной знак")
         go(WatermarkRoute); shot("09-watermark", "В/ч 65384")
         back()

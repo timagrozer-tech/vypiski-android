@@ -11,6 +11,6 @@ import kotlinx.serialization.Serializable
 
 fun NavGraphBuilder.editorScreens(onBack: () -> Unit) {
     composable<EditorRoute> { DocumentScopedScreen(DocScreen.Editor, it.toRoute<EditorRoute>().docId, onBack) }
-    composable<OcrRoute> { DocumentScopedScreen(DocScreen.Ocr, it.toRoute<OcrRoute>().docId, onBack) }
+    composable<OcrRoute> { OcrRouteScreen(onBack) }
     composable<FioRoute> { DocumentScopedScreen(DocScreen.Fio, it.toRoute<FioRoute>().docId, onBack) }
 }

@@ -101,8 +101,9 @@ fun ScannerApp(navController: NavHostController = rememberNavController()) {
                 onOpenDocument = { navController.navigate(ViewerRoute(it)) },
                 onProcess = { id, page -> navController.navigate(ProcessingRoute(id, page)) },
                 onBack = back,
+                onText = { navController.navigate(ru.scanner291.feature.editor.OcrRoute(it)) },
             )
-            searchScreen()
+            searchScreen(onOpenDocument = { navController.navigate(ViewerRoute(it)) })
             pdfToolsScreen(onBack = back)
             settingsScreens(onOpenWatermark = { navController.navigate(WatermarkRoute) }, onBack = back)
             batchSaveScreen(onBack = back)

@@ -76,6 +76,28 @@ class DocumentRepository @Inject constructor(
             dao.setRecipe(pageId, recipe?.let { ru.scanner291.core.common.render.RecipeCodec.encode(it) })
         }
 
+    // ── Текстовый слой и поиск (этап 10) ──
+    fun observeTexts(docId: String) = dao.observeTexts(docId)
+    suspend fun text(pageId: String) = dao.text(pageId)
+    suspend fun saveText(t: ru.scanner291.core.database.PageTextEntity) = withContext(Dispatchers.IO) { dao.saveText(t) }
+
+    /** Исправление текста пользователем: слова с рамками сбрасываются (они относились к старому тексту). */
+    suspend fun editText(pageId: String, text: String) = withContext(Dispatchers.IO) {
+        val old = dao.text(pageId) ?: return@withContext
+        dao.saveText(old.copy(text = text, words = "", edited = true, createdAt = System.currentTimeMillis()))
+    }
+
+    /** Поиск: названия (без учёта регистра, в т. ч. кириллицы) и распознанный текст (FTS, по началу слов). */
+    suspend fun search(query: String): SearchResults = withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isEmpty()) return@withContext SearchResults(emptyList(), emptyList())
+        val low = q.lowercase()
+        val titles = dao.allDocuments().filter { it.title.lowercase().contains(low) }
+        val match = ftsQuery(q)
+        val hits = if (match.isEmpty()) emptyList() else runCatching { dao.searchText(match) }.getOrDefault(emptyList())
+        SearchResults(titles, hits)
+    }
+
     fun originalFile(page: PageEntity): File = paths.absolute(page.originalPath)
 
     suspend fun createDocument(mode: ScanMode, source: DocumentSource, title: String, now: Long = System.currentTimeMillis()): String =
@@ -109,6 +131,7 @@ class DocumentRepository @Inject constructor(
         if (src.exists() && !src.renameTo(dst)) throw IOException("Не удалось перенести страницу в корзину")
         db.withTransaction {
             dao.deletePage(pageId)
+            dao.deleteFts(pageId)   // текстовый слой удаляется каскадно, индекс FTS — явно
             dao.touch(page.docId, System.currentTimeMillis())
         }
     }
@@ -278,3 +301,12 @@ internal fun InputStream.readNBytesCompat(n: Int): ByteArray {
     }
     return buf.copyOf(off)
 }
+
+data class SearchResults(val titles: List<ru.scanner291.core.database.DocumentEntity>, val text: List<ru.scanner291.core.database.TextHit>)
+
+/**
+ * Запрос пользователя → выражение FTS: слова (буквы и цифры) с «*» — поиск по началу слова, все слова
+ * обязательны. Спецсимволы FTS отбрасываются, поэтому запрос не может сломать SQL. Покрыто тестом.
+ */
+fun ftsQuery(q: String): String =
+    Regex("[\\p{L}\\p{N}]+").findAll(q).map { it.value.lowercase() }.take(8).joinToString(" ") { "$it*" }
