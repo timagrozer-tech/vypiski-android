@@ -1,0 +1,5 @@
+файл: 91632 байт, существует=true
+BitmapFactory границы: 0x0 mime=null
+BitmapFactory полностью: null ошибка=null
+ImageDecoder: null ошибка=android.graphics.ImageDecoder$DecodeException: Only supported on AndroidException in input: null
+PageImageLoader: 1200x1600, пиксель(10,10)=ff5f4a39
