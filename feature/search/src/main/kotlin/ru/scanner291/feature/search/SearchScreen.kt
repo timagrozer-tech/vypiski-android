@@ -111,7 +111,7 @@ fun SearchScreen(query: String, onQuery: (String) -> Unit, ui: SearchUi, onOpenD
             SearchUi.Idle -> EmptyState(Icons.Rounded.Search, "Поиск по всей библиотеке", "Ищет по названиям и распознанному тексту. Работает без интернета.")
             is SearchUi.Results -> if (ui.titles.isEmpty() && ui.text.isEmpty()) {
                 EmptyState(Icons.Rounded.SearchOff, "Ничего не найдено", "По запросу «${ui.query}» ничего нет. Текст ищется только на распознанных страницах.")
-            } else LazyColumn(contentPadding = PaddingValues(bottom = Space.s8 * 2)) {
+            } else LazyColumn(contentPadding = PaddingValues(bottom = ru.scanner291.designsystem.BottomBarInset)) {
                 if (ui.titles.isNotEmpty()) item { SectionTitle("В названиях", Modifier.padding(horizontal = Space.s4)) }
                 items(ui.titles, key = { "t" + it.docId }) { Item(it, onOpenDocument) }
                 if (ui.text.isNotEmpty()) item { SectionTitle("В тексте документов", Modifier.padding(horizontal = Space.s4)) }

@@ -76,7 +76,7 @@ fun SettingsScreen(
     onAppLock: (Boolean) -> Unit = {},
 ) {
     var about by rememberSaveable { mutableStateOf(false) }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = Space.s10 * 2)) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = ru.scanner291.designsystem.BottomBarInset)) {
         ScanTopBar(title = "Настройки", large = true)
         Column(Modifier.padding(horizontal = Space.s4)) {
             SectionTitle("Названия файлов")
