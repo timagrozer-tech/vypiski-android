@@ -42,7 +42,7 @@ data class LibraryUi(
 @HiltViewModel
 class DocumentsViewModel @Inject constructor(
     private val repo: DocumentRepository,
-    private val loader: PageImageLoader,
+    private val thumbs: ru.scanner291.core.storage.ThumbnailLoader,
 ) : ViewModel() {
     /** Текущая коллекция (вкладка, папка, тег, умный фильтр). */
     val collection = MutableStateFlow<DocCollection>(DocCollection.All)
@@ -57,8 +57,7 @@ class DocumentsViewModel @Inject constructor(
 
     fun show(c: DocCollection) { collection.value = c; message.value = null }
 
-    suspend fun thumbnail(pageId: String?): ImageBitmap? =
-        pageId?.let { repo.page(it) }?.let { loader.load(it, 160) }?.asImageBitmap()
+    suspend fun thumbnail(pageId: String?): ImageBitmap? = thumbs.load(pageId)?.asImageBitmap()
 
     suspend fun tagsOf(docId: String) = repo.tagsOf(docId)
 
@@ -116,6 +115,23 @@ class ViewerViewModel @Inject constructor(
 
     private val _message = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
+
+    private val renameDismissed = MutableStateFlow(false)
+    /**
+     * Умное название (как Smart Names): если документ назван автоматически («Импорт …»), а текст распознан —
+     * предложить «Выписка из приказа Арефьев П.В. 01.04.2026». Только предложение: меняется по нажатию.
+     */
+    val renameSuggestion: StateFlow<String?> = combine(state, repo.observeTexts(docId), renameDismissed) { s, list, dismissed ->
+        val d = (s as? ViewerState.Ready)?.doc?.doc ?: return@combine null
+        if (dismissed || !ru.scanner291.core.intelligence.naming.DefaultNames.isAutomatic(d.title)) return@combine null
+        val text = list.joinToString("\n") { it.text }.takeIf { it.isNotBlank() } ?: return@combine null
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            ru.scanner291.core.intelligence.doc.DocumentAnalyzer().analyze(text).suggestedName()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun acceptRename(title: String) { viewModelScope.launch { runCatching { repo.rename(docId, title) }; renameDismissed.value = true } }
+    fun dismissRename() { renameDismissed.value = true }
     private val _busyPage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val busyPage: StateFlow<String?> = _busyPage
 

@@ -16,6 +16,8 @@ enum class ExportMode(val title: String, val ext: String, val multiFile: Boolean
     JPG("JPG — по странице", "jpg", true),
     PNG("PNG — по странице", "png", true),
     TXT("Текст (TXT)", "txt", false),
+    /** Word: абзацы и выравнивание по рамкам слов OCR (TextLayout), сомнительные слова подсвечены. */
+    DOCX("Word (DOCX)", "docx", false),
 }
 
 /** Чистая математика экспорта — покрыта ExportMathTest. */

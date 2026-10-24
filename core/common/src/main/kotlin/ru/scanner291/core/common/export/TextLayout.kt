@@ -39,7 +39,7 @@ object TextLayout {
             }
             out += mutableListOf(w)
         }
-        return out.map { l -> val s = l.sortedBy { it.box.left }
+        return out.map { l -> val s = l.sortedBy { it.box.left }.let(OcrFixes::fixLine)
             LayoutLine(s, s.minOf { it.box.left }, s.maxOf { it.box.right }, s.minOf { it.box.top }, s.maxOf { it.box.bottom }) }
     }
 
@@ -64,7 +64,11 @@ object TextLayout {
             // Новый абзац: большой интервал, смена выравнивания, красная строка (отступ слева) после полной строки
             val indent = l.left - left > (right - left) * 0.04f && ls[i - 1].right - ls[i - 1].left > (right - left) * 0.8f
             val sameBlock = (curAlign == Align.JUSTIFY || curAlign == Align.LEFT) && (a == Align.JUSTIFY || a == Align.LEFT)
-            if (gap > medH * 0.9f || (a != curAlign && !sameBlock) || indent) {
+            // Предыдущая строка закончилась раньше правого края или двоеточием — абзац закончен
+            // («Полагать убывшими:» / «II. В командировку:» не склеиваются со следующим пунктом)
+            val prev = ls[i - 1]
+            val prevEnded = sameBlock && (prev.right < left + (right - left) * 0.8f || prev.text.trimEnd().endsWith(":"))
+            if (gap > medH * 0.9f || (a != curAlign && !sameBlock) || indent || prevEnded) {
                 out += Paragraph(cur, curAlign); cur = mutableListOf(l); curAlign = a
             } else {
                 cur += l; if (curAlign == Align.LEFT && a == Align.JUSTIFY) curAlign = Align.JUSTIFY
@@ -72,6 +76,28 @@ object TextLayout {
         }
         out += Paragraph(cur, curAlign)
         return out
+    }
+}
+
+/**
+ * Частые ошибки распознавания в служебных документах, исправляемые по контексту (только однозначные случаи):
+ * «$7» → «§ 7» (знак параграфа), «П.»/«Ш.» в начале пункта перед словом с заглавной → «II.»/«III.»
+ * (римская нумерация разделов приказа). Исправленные слова получают пониженную уверенность — подсвечиваются.
+ */
+object OcrFixes {
+    private val PARAGRAPH = Regex("^[\\$§]\\s?(\\d+)([.,:]?)$")
+    private val ROMAN = mapOf("П." to "II.", "Ш." to "III.", "ПI." to "III.", "IП." to "III.")
+
+    fun fixLine(words: List<OcrWord>): List<OcrWord> = words.mapIndexed { i, w ->
+        val t = w.text
+        val m = PARAGRAPH.find(t)
+        when {
+            m != null && (t.startsWith("$") || t.startsWith("§")) -> w.copy(text = "§ " + m.groupValues[1] + m.groupValues[2], confidence = minOf(w.confidence, 0.59f))
+            t == "$" && words.getOrNull(i + 1)?.text?.firstOrNull()?.isDigit() == true -> w.copy(text = "§", confidence = minOf(w.confidence, 0.59f))
+            i == 0 && t in ROMAN && words.getOrNull(1)?.text?.firstOrNull()?.isUpperCase() == true ->
+                w.copy(text = ROMAN.getValue(t), confidence = minOf(w.confidence, 0.59f))
+            else -> w
+        }
     }
 }
 

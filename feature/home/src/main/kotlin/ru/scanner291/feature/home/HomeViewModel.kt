@@ -40,7 +40,7 @@ sealed interface ImportEvent {
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repo: DocumentRepository,
-    private val loader: PageImageLoader,
+    private val thumbs: ru.scanner291.core.storage.ThumbnailLoader,
 ) : ViewModel() {
     /** Последние 5 документов (виртуальное представление индекса, без копий). */
     val recent: StateFlow<List<DocumentSummary>?> = repo.observeDocuments().map { it.take(5) }
@@ -70,6 +70,5 @@ class HomeViewModel @Inject constructor(
     fun consumeEvent() { _event.value = null }
     fun clearMessage() { _message.value = null }
 
-    suspend fun thumbnail(pageId: String?): ImageBitmap? =
-        pageId?.let { repo.page(it) }?.let { loader.load(it, 160) }?.asImageBitmap()
+    suspend fun thumbnail(pageId: String?): ImageBitmap? = thumbs.load(pageId)?.asImageBitmap()
 }

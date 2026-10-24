@@ -125,4 +125,30 @@ class DocumentAnalyzerTest {
     // ── Ошибки OCR (2) ──
     @Test fun ocrLatinLookalikesInHeading() = assertEquals(DocType.REPORT, f("PAПOPT\nПрошу").type?.value)
     @Test fun ocrHyphenatedLineBreak() = assertEquals(DocType.CERTIFICATE, f("СПРАВ-\nКА\nвыдана в том, что").type?.value)
+
+    /** Скриншот пользователя 2026-10-24: «Импорт …» → осмысленное имя по типу, ФИО и дате. */
+    @Test fun orderExtractSmartName() {
+        val t = """
+            ВЫПИСКА ИЗ ПРИКАЗА
+            КОМАНДИРА ВОЙСКОВОЙ ЧАСТИ 65384
+            по строевой части
+            «01» апреля 2026 г. № 101 ДСП
+            с. Борзой
+            § 7
+            Полагать убывшими:
+            II. В командировку:
+            1. Майора Арефьева Павла Валерьевича - с 27.03.2026 г.
+            Основание: рапорт № 6339 от 1 апреля 2026 года.
+            ВрИО КОМАНДИРА ВОЙСКОВОЙ ЧАСТИ 65384
+            гвардии подполковник
+            С.Цахилов
+        """.trimIndent()
+        val f = DocumentAnalyzer().analyze(t, java.time.LocalDate.of(2026, 10, 24))
+        println("умное имя: ${f.suggestedName()}")
+        assertEquals(DocType.ORDER_EXTRACT, f.type?.value)
+        assertTrue(f.suggestedName()!!.startsWith("Выписка из приказа"))
+        assertTrue(ru.scanner291.core.intelligence.naming.DefaultNames.isAutomatic("Импорт 2026-10-24 08-52"))
+        assertTrue(ru.scanner291.core.intelligence.naming.DefaultNames.isAutomatic("Скан 2026-10-24 08-52 (2)"))
+        assertTrue(!ru.scanner291.core.intelligence.naming.DefaultNames.isAutomatic("Приказ 15"))
+    }
 }

@@ -63,6 +63,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.scanner291.core.common.export.Align
@@ -73,6 +74,7 @@ import ru.scanner291.designsystem.EmptyState
 import ru.scanner291.designsystem.ScanButton
 import ru.scanner291.designsystem.ScanSegmented
 import ru.scanner291.designsystem.ScannerTheme
+import ru.scanner291.designsystem.SuggestionBanner
 import ru.scanner291.designsystem.Space
 import ru.scanner291.designsystem.Status
 import ru.scanner291.designsystem.StatusLine
@@ -86,6 +88,7 @@ internal fun ViewerRouteScreen(onProcess: (String, Int) -> Unit, onBack: () -> U
     val texts by vm.texts.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val busy by vm.busyPage.collectAsStateWithLifecycle()
+    val rename by vm.renameSuggestion.collectAsStateWithLifecycle()
     val docx = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { it?.let(vm::saveDocx) }
     ViewerScreen(
         state, texts, message, busy, vm::image,
@@ -93,7 +96,9 @@ internal fun ViewerRouteScreen(onProcess: (String, Int) -> Unit, onBack: () -> U
             onBack = onBack, onRotate = vm::rotate, onEdit = { i -> onProcess(vm.docId, i) },
             onExtract = vm::extract, onShare = { onExport(vm.docId) }, onAllText = { onText(vm.docId) },
             onDocx = { title -> docx.launch("$title.docx") }, onMessageShown = vm::clearMessage,
+            onRename = vm::acceptRename, onDismissRename = vm::dismissRename,
         ),
+        renameSuggestion = rename,
     )
 }
 
@@ -101,6 +106,7 @@ data class ViewerActions(
     val onBack: () -> Unit = {}, val onRotate: (PageEntity) -> Unit = {}, val onEdit: (Int) -> Unit = {},
     val onExtract: (PageEntity, () -> Unit) -> Unit = { _, _ -> }, val onShare: () -> Unit = {}, val onAllText: () -> Unit = {},
     val onDocx: (String) -> Unit = {}, val onMessageShown: () -> Unit = {},
+    val onRename: (String) -> Unit = {}, val onDismissRename: () -> Unit = {},
 )
 
 /**
@@ -116,6 +122,7 @@ fun ViewerScreen(
     busyPage: String?,
     image: suspend (PageEntity) -> ImageBitmap?,
     a: ViewerActions,
+    renameSuggestion: String? = null,
 ) {
     val c = ScannerTheme.colors
     var tab by rememberSaveable { mutableStateOf(ViewerTab.Image) }
@@ -130,6 +137,12 @@ fun ViewerScreen(
                 val pages = state.doc.orderedPages
                 val pager = rememberPagerState { pages.size }
                 Header(tab, { tab = it }, stringResource(R.string.viewer_counter, pager.currentPage + 1, pages.size), a.onBack)
+                Text(state.doc.doc.title, style = Type.caption, color = c.textSecondary, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = Space.s4).padding(bottom = Space.s1))
+                renameSuggestion?.let { s ->
+                    SuggestionBanner(stringResource(R.string.viewer_rename_suggest, s), stringResource(R.string.viewer_rename_action),
+                        { a.onRename(s) }, a.onDismissRename, Modifier.padding(horizontal = Space.s4).padding(bottom = Space.s2))
+                }
                 message?.let { StatusLine(Status.SUCCESS, it, Modifier.padding(horizontal = Space.s4)) }
                 HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), beyondViewportPageCount = 1, key = { pages[it].id }) { i ->
                     val p = pages[i]
@@ -230,13 +243,13 @@ private fun WordPage(word: PageWord?, busy: Boolean, onRecognize: () -> Unit) {
 private fun BottomBar(onRotate: () -> Unit, onEdit: () -> Unit, onExtract: () -> Unit, onShare: () -> Unit, onAllText: () -> Unit, onDocx: () -> Unit, onExport: () -> Unit) {
     val c = ScannerTheme.colors
     var more by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().background(c.surface).navigationBarsPadding().padding(vertical = Space.s2), horizontalArrangement = Arrangement.SpaceEvenly) {
-        BarButton(Icons.Rounded.RotateRight, stringResource(R.string.viewer_action_rotate), onRotate)
-        BarButton(Icons.Rounded.Edit, stringResource(R.string.viewer_action_edit), onEdit)
-        BarButton(Icons.Rounded.TextFields, stringResource(R.string.viewer_action_extract), onExtract)
-        BarButton(Icons.Rounded.Share, stringResource(R.string.viewer_action_share), onShare)
-        Box {
-            BarButton(Icons.Rounded.MoreVert, stringResource(R.string.viewer_action_more)) { more = true }
+    Row(Modifier.fillMaxWidth().background(c.surface).navigationBarsPadding().padding(vertical = Space.s1)) {
+        BarButton(Icons.Rounded.RotateRight, stringResource(R.string.viewer_action_rotate), onRotate, Modifier.weight(1f))
+        BarButton(Icons.Rounded.Edit, stringResource(R.string.viewer_action_edit), onEdit, Modifier.weight(1f))
+        BarButton(Icons.Rounded.TextFields, stringResource(R.string.viewer_action_extract), onExtract, Modifier.weight(1f))
+        BarButton(Icons.Rounded.Share, stringResource(R.string.viewer_action_share), onShare, Modifier.weight(1f))
+        Box(Modifier.weight(1f)) {
+            BarButton(Icons.Rounded.MoreVert, stringResource(R.string.viewer_action_more), { more = true }, Modifier.fillMaxWidth())
             DropdownMenu(more, { more = false }) {
                 DropdownMenuItem({ Text(stringResource(R.string.viewer_more_docx)) }, { more = false; onDocx() })
                 DropdownMenuItem({ Text(stringResource(R.string.viewer_more_text)) }, { more = false; onAllText() })
@@ -247,12 +260,12 @@ private fun BottomBar(onRotate: () -> Unit, onEdit: () -> Unit, onExtract: () ->
 }
 
 @Composable
-private fun BarButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun BarButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = ScannerTheme.colors
-    TextButton(onClick, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) {
+    TextButton(onClick, modifier, contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, tint = c.text)
-            Text(label, style = Type.captionSm, color = c.text, maxLines = 1)
+            Text(label, style = Type.captionSm.copy(fontSize = 11.sp), color = c.text, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
     }
 }

@@ -81,12 +81,11 @@ data class PdfTool(val kind: ToolKind, val icon: ImageVector, val title: String,
 val PdfTools = listOf(
     PdfTool(ToolKind.MERGE, Icons.AutoMirrored.Rounded.CallMerge, "Объединить", "Несколько PDF в один"),
     PdfTool(ToolKind.SPLIT, Icons.AutoMirrored.Rounded.CallSplit, "Разделить", "По диапазонам страниц в папку"),
-    PdfTool(ToolKind.COMPRESS, Icons.Rounded.Compress, "Сжать", "Уменьшить размер (страницы станут изображениями)"),
+    PdfTool(ToolKind.COMPRESS, Icons.Rounded.Compress, "Сжать", "Уменьшить размер файла"),
     PdfTool(ToolKind.ROTATE, Icons.Rounded.RotateRight, "Повернуть", "Страницы на 90°, 180°, 270°"),
     PdfTool(ToolKind.EXTRACT, Icons.Rounded.FileUpload, "Извлечь и переставить", "Выбранные страницы в новом порядке"),
     PdfTool(ToolKind.INSERT, Icons.Rounded.NoteAdd, "Добавить", "Страницы другого PDF в нужное место"),
-    PdfTool(ToolKind.PROTECT, Icons.Rounded.Lock, "Защитить", "Пароль — этап 18 (безопасность)", ready = false),
-    PdfTool(ToolKind.EXPORT, Icons.Rounded.IosShare, "Экспорт", "Откройте документ → кнопка «Экспорт»", ready = false),
+    PdfTool(ToolKind.PROTECT, Icons.Rounded.Lock, "Защитить", "Пароль на открытие (AES-256)"),
 )
 
 /**
@@ -153,6 +152,7 @@ class PdfToolsViewModel @Inject constructor(app: Application) : AndroidViewModel
                 ToolKind.ROTATE -> { val pages = parsePages(spec, p.pageCount, onErr) ?: error(err!!); engine.rotate(p.files.first(), pages.toSet(), degrees, out) }
                 ToolKind.EXTRACT -> { val pages = parsePages(spec, p.pageCount, onErr) ?: error(err!!); engine.select(p.files.first(), pages, out) }
                 ToolKind.INSERT -> { require(p.files.size == 2) { "Выберите PDF для вставки" }; engine.insert(p.files[0], p.files[1], position.coerceIn(0, p.pageCount), out) }
+                ToolKind.PROTECT -> engine.protect(p.files.first(), spec, out)
                 ToolKind.SPLIT -> {
                     val ranges = parseRanges(spec, p.pageCount, onErr) ?: error(err!!)
                     val dir = DocumentFile.fromTreeUri(ctx, target) ?: error("Папка недоступна")
@@ -235,7 +235,7 @@ internal fun PdfToolsRouteScreen(onBack: () -> Unit, vm: PdfToolsViewModel = hil
                 if (p.kind == ToolKind.SPLIT) folder.launch(null)
                 else save.launch(p.names.first().removeSuffix(".pdf") + when (p.kind) {
                     ToolKind.MERGE -> " (объединённый).pdf"; ToolKind.COMPRESS -> " (сжатый).pdf"; ToolKind.ROTATE -> " (повёрнутый).pdf"
-                    ToolKind.EXTRACT -> " (страницы).pdf"; else -> " (изменённый).pdf"
+                    ToolKind.EXTRACT -> " (страницы).pdf"; ToolKind.PROTECT -> " (защищённый).pdf"; else -> " (изменённый).pdf"
                 })
             },
             onCancel = vm::cancel)
@@ -292,11 +292,15 @@ private fun PendingDialog(
                         ScanTextField(position, onPosition, "Перед страницей № (пусто — в конец)")
                     }
                     ToolKind.COMPRESS -> StatusLine(Status.WARNING, "Страницы станут изображениями 150 dpi: текст перестанет выделяться и искаться")
+                    ToolKind.PROTECT -> {
+                        ScanTextField(spec, onSpec, "Пароль (не короче ${PdfEngine.MIN_PASSWORD} символов)", password = true)
+                        StatusLine(Status.WARNING, "Запомните пароль: без него файл не открыть, восстановить его нельзя")
+                    }
                     else -> Unit
                 }
             }
         },
-        confirmButton = { TextButton(onRun, enabled = p.kind != ToolKind.INSERT || p.files.size == 2) { Text(if (p.kind == ToolKind.SPLIT) "Выбрать папку…" else "Сохранить как…") } },
+        confirmButton = { TextButton(onRun, enabled = (p.kind != ToolKind.INSERT || p.files.size == 2) && (p.kind != ToolKind.PROTECT || spec.length >= PdfEngine.MIN_PASSWORD)) { Text(if (p.kind == ToolKind.SPLIT) "Выбрать папку…" else "Сохранить как…") } },
         dismissButton = { TextButton(onCancel) { Text("Отмена") } },
     )
 }

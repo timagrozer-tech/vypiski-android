@@ -114,7 +114,7 @@ class PdfEngine(private val context: Context) {
     /** Был ли PDF создан экспортом с водяным знаком (метка в метаданных). */
     fun isWatermarkedExport(f: File): Boolean = runCatching { open(f).use { it.documentInformation.getCustomMetadataValue(WATERMARK_KEY) == "1" } }.getOrDefault(false)
 
-    companion object { const val WATERMARK_KEY = "Scanner291Watermark" }
+    companion object { const val WATERMARK_KEY = "Scanner291Watermark"; const val MIN_PASSWORD = 4 }
 
     fun pageCount(f: File): Int = open(f).use { it.numberOfPages }
 
@@ -179,6 +179,26 @@ class PdfEngine(private val context: Context) {
             }
         } }
     }
+
+    /**
+     * Защита паролем (AES-256, PDF 2.0 Standard Security): без пароля файл не открывается. Пароль владельца =
+     * паролю открытия (снять защиту может тот, кто знает пароль). Исходный файл не меняется.
+     */
+    fun protect(input: File, password: String, out: File) {
+        require(password.length >= MIN_PASSWORD) { "Пароль — не короче $MIN_PASSWORD символов" }
+        require(input.absoluteFile != out.absoluteFile) { "Результат не может заменить исходный файл" }
+        open(input).use { d ->
+            require(!d.isEncrypted) { "Файл уже защищён паролем" }
+            val policy = com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy(password, password,
+                com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission())
+            policy.encryptionKeyLength = 256
+            d.protect(policy)
+            save(d, out)
+        }
+    }
+
+    /** Открыть защищённый файл (проверка пароля). Неверный пароль — исключение. */
+    fun pageCount(f: File, password: String): Int = PDDocument.load(f, password, MemoryUsageSetting.setupTempFileOnly()).use { it.numberOfPages }
 
     fun rotationOf(f: File): List<Int> = open(f).use { d -> (0 until d.numberOfPages).map { d.getPage(it).rotation } }
 }

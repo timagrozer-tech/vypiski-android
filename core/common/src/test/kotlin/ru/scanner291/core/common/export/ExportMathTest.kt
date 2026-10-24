@@ -9,8 +9,8 @@ import ru.scanner291.core.common.model.QualityProfile
 
 class ExportMathTest {
     @Test fun sixModesWithoutUnmeasuredFormats() {
-        assertEquals(6, ExportMode.entries.size)
-        assertTrue(ExportMode.entries.none { it.ext == "docx" || it.ext == "xlsx" })
+        assertEquals(7, ExportMode.entries.size)
+        assertTrue(ExportMode.entries.any { it.ext == "docx" } && ExportMode.entries.none { it.ext == "xlsx" })
     }
 
     @Test fun sizeEstimateScalesSublinearly() {

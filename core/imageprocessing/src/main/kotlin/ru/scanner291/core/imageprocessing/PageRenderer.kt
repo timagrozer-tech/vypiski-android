@@ -108,6 +108,7 @@ object PageRenderer {
                     Imgproc.adaptiveThreshold(img, img, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, block, c)
                     // Чек: бледная термопечать — штрихи утолщаются (эрозия белого 2×2); F1 0.994 против 0.962 у ЧБ
                     if (f == FilterType.RECEIPT) Imgproc.erode(img, img, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0, 2.0)).track())
+                    if (r.corners != null) cleanMargins(img)
                     return toBitmap(img, mats)
                 }
                 FilterType.HYBRID -> img = hybrid(img, hp).track()
@@ -126,6 +127,8 @@ object PageRenderer {
             }
             // 6. Яркость и контраст пользователя
             applyLut(img, RenderMath.brightnessContrastLut(r.brightness, r.contrast))
+            // 7. Чистые поля у «документных» фильтров (после выравнивания листа по углам)
+            if (r.corners != null && f in MARGIN_FILTERS) cleanMargins(img)
             return toBitmap(img, mats)
         } finally {
             mats.forEach { it.release() }
@@ -201,6 +204,56 @@ object PageRenderer {
         } finally {
             tmp.forEach { it.release() }
         }
+    }
+
+    private val MARGIN_FILTERS = setOf(FilterType.HYBRID, FilterType.TEXT_BOOST, FilterType.GRAY, FilterType.MAGIC_COLOR)
+
+    /**
+     * Очистка полей (2026-10-24, по снимку пользователя: чёрточки и точки у края листа). Кромка 0.6 % стороны —
+     * белая (остаток фона за краем после выравнивания перспективы); тёмные пятна у края, целиком лежащие в полосе
+     * 4 % стороны, и мелкие точки вне прямоугольника текста — белые. Копия: tools/processing-lab/enhance.py
+     * `clean_margins`; замер: убрано 97 % артефактов, CER 2.04 → 1.90 %, печать не задета.
+     */
+    private fun cleanMargins(img: Mat) {
+        val w = img.cols(); val h = img.rows()
+        if (w < 50 || h < 50) return
+        val nx = max(2, (w * 0.006).toInt()); val ny = max(2, (h * 0.006).toInt())
+        val bw = (w * 0.04).toInt(); val bh = (h * 0.04).toInt()
+        val white = if (img.channels() == 1) Scalar(255.0) else Scalar(255.0, 255.0, 255.0)
+        img.submat(0, ny, 0, w).setTo(white); img.submat(h - ny, h, 0, w).setTo(white)
+        img.submat(0, h, 0, nx).setTo(white); img.submat(0, h, w - nx, w).setTo(white)
+        val gray = Mat(); if (img.channels() == 1) img.copyTo(gray) else Imgproc.cvtColor(img, gray, Imgproc.COLOR_RGB2GRAY)
+        val dark = Mat(); Imgproc.threshold(gray, dark, 159.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        val labels = Mat(); val stats = Mat(); val cent = Mat()
+        try {
+            val n = Imgproc.connectedComponentsWithStats(dark, labels, stats, cent, 8, CvType.CV_32S)
+            if (n <= 1 || n > 200_000) return
+            val st = IntArray(n * 5); stats.get(0, 0, st)
+            fun s(i: Int, c: Int) = st[i * 5 + c]
+            val small = max(4, (0.0006 * w * h / 100).toInt())
+            val kill = BooleanArray(n)
+            for (i in 1 until n) {
+                val x = s(i, 0); val y = s(i, 1); val cw = s(i, 2); val ch = s(i, 3)
+                val touches = x <= 2 * nx || y <= 2 * ny || x + cw >= w - 2 * nx || y + ch >= h - 2 * ny
+                val inBand = x + cw <= bw || x >= w - bw || y + ch <= bh || y >= h - bh
+                if (touches && inBand) kill[i] = true
+            }
+            var x0 = Int.MAX_VALUE; var y0 = Int.MAX_VALUE; var x1 = -1; var y1 = -1
+            for (i in 1 until n) if (!kill[i] && s(i, 4) >= small) {
+                x0 = minOf(x0, s(i, 0)); y0 = minOf(y0, s(i, 1)); x1 = maxOf(x1, s(i, 0) + s(i, 2)); y1 = maxOf(y1, s(i, 1) + s(i, 3))
+            }
+            if (x1 >= 0) for (i in 1 until n) if (!kill[i] && s(i, 4) < small &&
+                (s(i, 0) + s(i, 2) < x0 || s(i, 0) > x1 || s(i, 1) + s(i, 3) < y0 || s(i, 1) > y1)) kill[i] = true
+            var removed = 0
+            for (i in 1 until n) if (kill[i]) {
+                if (++removed > 500) break   // защита от «мусорной» страницы: не больше 500 пятен
+                val x = s(i, 0); val y = s(i, 1); val cw = s(i, 2); val ch = s(i, 3)
+                val roiL = labels.submat(y, y + ch, x, x + cw)
+                val m = Mat(); Core.compare(roiL, Scalar(i.toDouble()), m, Core.CMP_EQ)
+                img.submat(y, y + ch, x, x + cw).setTo(white, m)
+                m.release(); roiL.release()
+            }
+        } finally { gray.release(); dark.release(); labels.release(); stats.release(); cent.release() }
     }
 
     private fun warp(img: Mat, q: Quad, aspect: Double?): Mat {

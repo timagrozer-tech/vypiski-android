@@ -158,6 +158,22 @@ class ProcessingViewModel @Inject constructor(
 
     // ── Улучшение ──
     fun setFilter(f: FilterType) = edit { it.copy(filter = f, preset = null) }
+
+    /** «Авто»: фильтр по содержимому выпрямленной страницы (AutoFilter: документ / цветная графика / фото). */
+    fun autoFilter() {
+        val s = _state.value as? ProcessingState.Ready ?: return
+        viewModelScope.launch {
+            val choice = withContext(Dispatchers.Default) {
+                processed.load(s.page, PageRecipe(corners = s.corners, filter = FilterType.ORIGINAL), s.mode, 256)?.let { b ->
+                    val px = IntArray(b.width * b.height); b.getPixels(px, 0, b.width, 0, 0, b.width, b.height)
+                    ru.scanner291.core.common.filters.AutoFilter.choose(px, b.width, b.height)
+                }
+            }
+            if (choice == null) { update { it.copy(message = "Не удалось обработать изображение") }; return@launch }
+            setFilter(choice.filter)
+            update { it.copy(message = "Авто: «${choice.filter.title}» — ${choice.reason}") }
+        }
+    }
     fun rotate(deg: Int) = edit { it.rotatedBy(deg) }
     // ── Пресеты и ручные параметры (этап 9) ──
     fun applyPreset(p: ru.scanner291.core.common.filters.Preset) = edit { p.applyTo(it) }

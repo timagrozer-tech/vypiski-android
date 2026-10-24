@@ -15,10 +15,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FileOpen
-import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryAddCheck
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,11 +30,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.scanner291.core.common.text.documentSubtitle
 import ru.scanner291.core.database.DocumentSummary
-import ru.scanner291.designsystem.DocumentRow
+import ru.scanner291.designsystem.BottomBarInset
+import ru.scanner291.designsystem.CompactAction
+import ru.scanner291.designsystem.DocumentCard
 import ru.scanner291.designsystem.EmptyState
 import ru.scanner291.designsystem.GlassCard
-import ru.scanner291.designsystem.QuickAction
-import ru.scanner291.designsystem.RowDivider
 import ru.scanner291.designsystem.ScanHero
 import ru.scanner291.designsystem.ScanTopBar
 import ru.scanner291.designsystem.ScannerTheme
@@ -99,20 +97,16 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val c = ScannerTheme.colors
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = Space.s10 * 2)) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = BottomBarInset)) {
         ScanTopBar(title = "291 Сканер", large = true, display = true)
         Column(Modifier.padding(horizontal = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
             ScanHero(onClick = onScan)
-            Spacer(Modifier.height(Space.s1))
+            // Три действия в ряд; «Документы» и «Поиск» — в нижней панели, здесь не повторяются
             Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
-                QuickAction(Icons.Rounded.FileOpen, "Импорт", onImport, Modifier.weight(1f))
-                QuickAction(Icons.Rounded.Folder, "Мои документы", onOpenDocuments, Modifier.weight(1f))
+                CompactAction(Icons.Rounded.FileOpen, "Импорт", onImport, Modifier.weight(1f))
+                CompactAction(Icons.Rounded.PictureAsPdf, "PDF-инструменты", onOpenPdfTools, Modifier.weight(1f))
+                CompactAction(Icons.Rounded.LibraryAddCheck, "Пакет", onOpenBatch, Modifier.weight(1f))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
-                QuickAction(Icons.Rounded.PictureAsPdf, "PDF-инструменты", onOpenPdfTools, Modifier.weight(1f))
-                QuickAction(Icons.Rounded.Search, "Поиск", onOpenSearch, Modifier.weight(1f))
-            }
-            QuickAction(Icons.Rounded.LibraryAddCheck, "Пакетное сохранение", onOpenBatch)
             if (importing) {
                 Text("Импорт файлов…", style = Type.caption, color = c.textSecondary)
                 LinearProgressIndicator(color = c.accent, trackColor = c.field, modifier = Modifier.fillMaxWidth())
@@ -123,22 +117,21 @@ fun HomeScreen(
                     Text("Нажмите, чтобы скрыть", style = Type.caption, color = c.textSecondary)
                 }
             }
-            Spacer(Modifier.height(Space.s3))
+            Spacer(Modifier.height(Space.s2))
             SectionTitle("Недавние документы", action = if (!recent.isNullOrEmpty()) "Все ›" else null, onAction = onOpenDocuments)
-            GlassCard(padding = if (recent.isNullOrEmpty()) Space.s4 else Space.s1) {
-                if (recent.isNullOrEmpty()) {
+            if (recent.isNullOrEmpty()) {
+                GlassCard {
                     EmptyState(
                         icon = Icons.Rounded.Description,
                         title = "Документов пока нет",
                         text = "Отсканированные документы появятся здесь. Всё хранится только на этом устройстве.",
                     )
-                } else {
-                    recent.forEachIndexed { i, d ->
-                        key(d.doc.id) {
-                            val bmp by produceState<ImageBitmap?>(null, d.firstPageId) { value = thumbnail(d.firstPageId) }
-                            DocumentRow(d.doc.title, documentSubtitle(d.doc.updatedAt, d.pageCount), bmp, onClick = { onOpenDocument(d.doc.id) })
-                            if (i < recent.lastIndex) RowDivider()
-                        }
+                }
+            } else {
+                recent.forEach { d ->
+                    key(d.doc.id) {
+                        val bmp by produceState<ImageBitmap?>(null, d.firstPageId, d.doc.updatedAt) { value = thumbnail(d.firstPageId) }
+                        DocumentCard(d.doc.title, documentSubtitle(d.doc.updatedAt, d.pageCount), bmp, onClick = { onOpenDocument(d.doc.id) }, favorite = d.doc.favorite)
                     }
                 }
             }

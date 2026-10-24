@@ -190,7 +190,7 @@ class AppScreenshotTest {
         go(DocumentsRoute); shot("03-documents", "Справка Иванов")
         go(ViewerRoute(id)); shot("04-viewer", "1/2")
         rule.onAllNodesWithText("Word")[0].performClick(); shot("04b-viewer-word", "может содержать ошибки")
-        go(ProcessingRoute(id)); shot("05-processing-corners", "Найти автоматически")
+        go(ProcessingRoute(id)); shot("05-processing-corners", "Найти углы")
         rule.onAllNodesWithText("Улучшение")[0].performClick()
         shot("05b-processing-enhance", "Убрать тени")
         back(); back()
@@ -215,6 +215,6 @@ class AppScreenshotTest {
         go(HomeRoute)
         theme = ThemeMode.LIGHT
         shot("15-home-light", "Справка Иванов")
-        go(ProcessingRoute(id)); shot("16-processing-light", "Найти автоматически")
+        go(ProcessingRoute(id)); shot("16-processing-light", "Найти углы")
     }
 }

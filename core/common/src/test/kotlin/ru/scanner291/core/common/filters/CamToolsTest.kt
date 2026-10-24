@@ -69,4 +69,16 @@ class CamToolsTest {
         assertTrue(s, s.contains("dm:0.50") && s.contains("ink:1.00"))
         assertEquals(r.normalized(), RecipeCodec.decode(s))
     }
+
+    /** «Авто»: текстовая страница с синей печатью → «Документ», цветная графика → «Яркий цвет», цветной кадр → «Фото». */
+    @Test fun autoFilterChoosesByContent() {
+        assertEquals(FilterType.HYBRID, AutoFilter.choose(page(), w, h).filter)
+        // тень на половине листа не делает документ фотографией
+        val shadowed = page().mapIndexed { i, p -> if (i % w < w / 2) argb(ch(p, 16) * 6 / 10, ch(p, 8) * 6 / 10, ch(p, 0) * 6 / 10) else p }.toIntArray()
+        assertEquals(FilterType.HYBRID, AutoFilter.choose(shadowed, w, h).filter)
+        val graphics = page().mapIndexed { i, p -> val x = i % w; val y = i / w; if (y < 20 && x in 10..110) argb(30, 120, 200) else p }.toIntArray()
+        assertEquals(FilterType.MAGIC_COLOR, AutoFilter.choose(graphics, w, h).filter)
+        val photo = IntArray(w * h) { i -> val x = i % w; val y = i / w; argb(40 + x * 180 / w, 60 + y * 150 / h, 200 - x * 120 / w) }
+        assertEquals(FilterType.PHOTO, AutoFilter.choose(photo, w, h).filter)
+    }
 }

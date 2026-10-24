@@ -1,6 +1,7 @@
 package ru.scanner291.feature.export
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -24,6 +25,7 @@ class PageSpecTest {
         assertEquals(listOf(listOf(0, 1, 2), listOf(3, 4)), parseRanges("1-3, 4-5", 5))
         assertNull(parseRanges("", 5))
         assertEquals(listOf("Объединить", "Разделить"), PdfTools.take(2).map { it.title })
-        assertEquals(2, PdfTools.count { !it.ready })
+        assertEquals(0, PdfTools.count { !it.ready })
+        assertTrue(PdfTools.any { it.title == "Защитить" })
     }
 }

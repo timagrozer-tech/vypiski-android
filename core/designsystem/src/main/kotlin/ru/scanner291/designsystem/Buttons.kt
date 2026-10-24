@@ -91,7 +91,7 @@ fun ScanButton(
             Icon(icon, contentDescription = null, tint = style.content, modifier = Modifier.size(Size.icon))
             Spacer(Modifier.width(Space.s2))
         }
-        Text(text, style = style.text, color = style.content, textAlign = TextAlign.Center)
+        Text(text, style = style.text, color = style.content, textAlign = TextAlign.Center, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, softWrap = false)
     }
 }
 

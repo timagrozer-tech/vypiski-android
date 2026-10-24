@@ -149,6 +149,8 @@ fun ScanTextField(
     supportingText: String? = null,
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    /** Пароль: символы скрыты точками. */
+    password: Boolean = false,
 ) {
     val c = ScannerTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -167,7 +169,8 @@ fun ScanTextField(
             textStyle = Type.bodyLg.copy(color = c.text),
             cursorBrush = SolidColor(c.accent),
             interactionSource = interaction,
-            keyboardOptions = keyboardOptions,
+            keyboardOptions = if (password) keyboardOptions.copy(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password) else keyboardOptions,
+            visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             modifier = Modifier.fillMaxWidth().semantics { if (isError) error(supportingText ?: "Ошибка") },
             decorationBox = { inner ->
                 Row(

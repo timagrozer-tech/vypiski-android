@@ -94,3 +94,18 @@ def remove_ink(img, k):
     fill = np.where(den > 0.05, num / np.maximum(den, 1e-6), 255)
     out = x + (fill - x) * (m[..., None] * k)
     return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def auto_filter(rgb):
+    """«Авто» (как Auto Color в Scanner Pro): выбор фильтра по выпрямленной странице (без фильтра), уменьшенной до 256.
+    Доля «цветных» пикселей (насыщенность ≥ 0.35, не бумага и не чёрный) и доля средних тонов:
+    фото — много цвета или почти нет бумаги; цветной документ — заметная цветная графика; иначе — «Документ»."""
+    s = 256 / max(rgb.shape[:2]); x = cv2.resize(rgb, (max(1, int(rgb.shape[1] * s)), max(1, int(rgb.shape[0] * s))), interpolation=cv2.INTER_AREA).astype(np.float32)
+    mx = x.max(2); mn = x.min(2); sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1), 0)
+    colorful = float(((sat >= 0.35) & (mx > 40) & (mx < 245)).mean())
+    # бумага относительно самой светлой части страницы (тени не мешают): ярче 75 % от 95-го процентиля, без цвета
+    luma = 0.299 * x[..., 2] + 0.587 * x[..., 1] + 0.114 * x[..., 0]
+    paper = float(((luma > 0.75 * np.percentile(luma, 95)) & (sat < 0.2)).mean())
+    if colorful > 0.25 or (paper < 0.15 and colorful > 0.02): return "PHOTO", colorful, paper
+    if colorful > 0.04: return "MAGIC_COLOR", colorful, paper
+    return "HYBRID", colorful, paper

@@ -147,3 +147,33 @@ def render(bgr, q, f, rotation=0, shadows=True, dn=True, b=0.0, c=1.0, aspect=No
             o = cv2.erode(o, np.ones((2, 2), np.uint8))
         return o
     return brightness_contrast(img, b, c)
+
+
+def clean_margins(img, band=0.04, speck=0.0006, near=0.006):
+    """Очистка полей (2026-10-24, по снимку пользователя): тёмные пятна у края листа (ближе [near]·стороны к краю
+    и целиком в полосе [band]·сторона — остатки стола, соседнего листа, тени края) и мелкие точки (площадь меньше
+    ≈6×6 px на 1000×1400) вне прямоугольника текста становятся белыми. Текст и печати внутри листа не трогаются."""
+    img = img.copy()
+    h, w = img.shape[:2]
+    bw, bh = int(w * band), int(h * band); nx, ny = max(2, int(w * near)), max(2, int(h * near))
+    # кромка листа (остаток фона за краем после выравнивания перспективы) — белая
+    img[:ny] = 255; img[h - ny:] = 255; img[:, :nx] = 255; img[:, w - nx:] = 255
+    g = img if img.ndim == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    dark = (g < 160).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(dark, connectivity=8)
+    small = max(4, int(speck * w * h / 100))
+    kill = np.zeros(n, bool)
+    for i in range(1, n):
+        x, y, cw, ch, a = st[i]
+        touches = x <= 2 * nx or y <= 2 * ny or x + cw >= w - 2 * nx or y + ch >= h - 2 * ny
+        in_band = (x + cw <= bw) or (x >= w - bw) or (y + ch <= bh) or (y >= h - bh)
+        if touches and in_band: kill[i] = True
+    big = [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= small and not kill[i]]
+    if big:
+        x0 = min(st[i, 0] for i in big); y0 = min(st[i, 1] for i in big)
+        x1 = max(st[i, 0] + st[i, 2] for i in big); y1 = max(st[i, 1] + st[i, 3] for i in big)
+        for i in range(1, n):
+            x, y, cw, ch, a = st[i]
+            if not kill[i] and a < small and (x + cw < x0 or x > x1 or y + ch < y0 or y > y1): kill[i] = True
+    img[kill[lab]] = 255
+    return img

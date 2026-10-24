@@ -5,7 +5,7 @@
     <string name="proc_not_found_hint">Откройте отсканированный документ, чтобы выровнять края.</string>
     <string name="proc_prev_page">Предыдущая страница</string>
     <string name="proc_next_page">Следующая страница</string>
-    <string name="proc_find_auto">Найти автоматически</string>
+    <string name="proc_find_auto">Найти углы</string>
     <string name="proc_full_page">Весь лист</string>
     <string name="proc_enhance">Улучшение</string>
     <string name="proc_save">Сохранить</string>
@@ -34,5 +34,6 @@
     <string name="proc_preset_delete_title">Удалить пресет «%1$s»?</string>
     <string name="proc_preview_desc">Результат обработки. Удерживайте, чтобы увидеть исходный снимок</string>
     <string name="proc_corners_desc">Углы листа: перетащите, чтобы поправить</string>
+    <string name="proc_auto_filter">Авто: подобрать фильтр</string>
     <string name="proc_render_time">Обработка: %1$d мс</string>
 </resources>

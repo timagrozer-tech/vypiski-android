@@ -83,7 +83,9 @@ object Presets {
         p("color_warm", "Цветной — тёплый", PresetGroup.COLOR, FilterType.COLOR, Adjustments(warmth = 0.6f)),
         p("color_cool", "Цветной — холодный", PresetGroup.COLOR, FilterType.COLOR, Adjustments(warmth = -0.6f)),
         p("blue_ink", "Синие чернила", PresetGroup.COLOR, FilterType.COLOR, Adjustments(vibrance = 0.8f, blackPoint = 0.3f)),
-        p("whiteboard", "Доска и маркер", PresetGroup.COLOR, FilterType.COLOR, Adjustments(clarity = 0.8f, saturation = 0.5f, whitePoint = 0.6f)),
+        // Доска (Whiteboard в Adobe Scan и Lens): основа «Яркий цвет» — доска белая, маркер насыщенный и чуть толще.
+        // Отдельный фильтр «Доска» измерен и отклонён: почти совпадал с «Документом» (lab_cam.py)
+        p("whiteboard", "Доска и маркер", PresetGroup.COLOR, FilterType.MAGIC_COLOR, Adjustments(saturation = 0.5f, textWeight = 1)),
         p("book", "Книга", PresetGroup.COLOR, FilterType.BOOK),
         p("book_sepia", "Книга — сепия", PresetGroup.COLOR, FilterType.BOOK, Adjustments(monochrome = 1f, warmth = 0.7f)),
         p("old_doc", "Старый документ", PresetGroup.COLOR, FilterType.COLOR, Adjustments(clarity = 0.6f, shadows = 0.5f, vibrance = -0.5f)),
@@ -104,6 +106,9 @@ object Presets {
         p("lighten", "Осветлить", PresetGroup.COLOR, FilterType.LIGHTEN),
         p("doc_no_marks", "Документ без цветных пометок", PresetGroup.DOCUMENT, FilterType.HYBRID, Adjustments(inkRemoval = 1f)),
         p("halftone", "Журнал, газета (растр)", PresetGroup.SPECIAL, FilterType.COLOR, Adjustments(descreen = 1f)),
+        // По мотивам Adobe Scan: Light text (бледный текст темнее) и Vintage (тёплая выцветшая бумага)
+        p("light_text", "Бледный текст", PresetGroup.DOCUMENT, FilterType.TEXT_BOOST, Adjustments(blackPoint = 0.7f, gamma = -0.4f)),
+        p("vintage", "Винтаж", PresetGroup.COLOR, FilterType.COLOR, Adjustments(warmth = 0.5f, fade = 0.5f, saturation = -0.4f)),
     )
 
     fun byId(id: String?, user: List<Preset> = emptyList()): Preset? = id?.let { i -> ALL.firstOrNull { it.id == i } ?: user.firstOrNull { it.id == i } }

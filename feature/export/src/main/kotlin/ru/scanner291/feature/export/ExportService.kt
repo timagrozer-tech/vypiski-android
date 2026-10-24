@@ -72,6 +72,7 @@ class ExportService @Inject constructor(
         val d = repo.document(docId) ?: return@withContext null
         val mode = scanModeOf(d.doc.mode)
         val pages = d.orderedPages
+        if (opts.mode == ExportMode.DOCX) return@withContext pages.sumOf { (repo.text(it.id)?.text?.toByteArray()?.size ?: 30).toLong() * 6 + 400 } + 1500
         if (opts.mode == ExportMode.TXT) return@withContext pages.sumOf { (repo.text(it.id)?.text?.toByteArray()?.size ?: 30).toLong() + 20 }
         var total = 0L
         // До 5 страниц пробуются, остальные — по среднему (оценка документа из 5 стр. ±11 % в 90 % случаев)
@@ -157,6 +158,25 @@ class ExportService @Inject constructor(
                 check(f.readText() == content) { "Проверка TXT не прошла" }
                 files += "${opts.baseName}.txt" to f
                 if (texts.any { it.isNullOrBlank() }) warnings += "Страниц без текста: ${texts.count { it.isNullOrBlank() }}"
+            }
+            ExportMode.DOCX -> {
+                // Абзацы по рамкам слов; страница, исправленная вручную, — простым текстом. Закрашенное не попадает.
+                val paras = pages.map { p -> repo.text(p.id)?.let { t ->
+                    val r = p.recipeFor(mode)
+                    val words = Redaction.filterWords(WordsCodec.decode(t.words), r.redactions)
+                    if (words.isNotEmpty() && !t.edited) ru.scanner291.core.common.export.TextLayout.paragraphs(words)
+                    else if (r.redactions.isEmpty()) ru.scanner291.core.common.export.DocxWriter.plainParagraphs(t.text) else emptyList()
+                }.orEmpty() }
+                if (paras.all { it.isEmpty() }) error("Текст не распознан — нажмите «Извлечь текст» в просмотре документа")
+                val f = File(dir, "out.docx")
+                AtomicFileWriter.write(f) { os -> ru.scanner291.core.common.export.DocxWriter.write(paras, object : java.io.FilterOutputStream(os) {
+                    override fun write(b: ByteArray, off: Int, len: Int) = os.write(b, off, len)
+                    override fun close() = os.flush()
+                }, highlightDoubtful = true) }
+                // Проверка: архив читается и содержит word/document.xml
+                java.util.zip.ZipFile(f).use { z -> check(z.getEntry("word/document.xml") != null) { "Проверка DOCX не прошла" } }
+                files += "${opts.baseName}.docx" to f
+                if (paras.any { it.isEmpty() }) warnings += "Страниц без текста: ${paras.count { it.isEmpty() }}"
             }
             ExportMode.PDF, ExportMode.PDF_OCR -> {
                 val f = File(dir, "out.pdf"); var withText = 0

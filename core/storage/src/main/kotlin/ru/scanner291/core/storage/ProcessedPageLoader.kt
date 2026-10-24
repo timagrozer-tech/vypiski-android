@@ -55,3 +55,20 @@ class ProcessedPageLoader @Inject constructor(private val loader: PageImageLoade
         }
     }
 }
+
+/**
+ * Миниатюры для списков (2026-10-24): обработанная страница по рецепту — так, как документ выглядит в
+ * просмотре и в PDF; если обработка недоступна — уменьшенный оригинал.
+ */
+@Singleton
+class ThumbnailLoader @Inject constructor(
+    private val repo: DocumentRepository,
+    private val loader: PageImageLoader,
+    private val processed: ProcessedPageLoader,
+) {
+    suspend fun load(pageId: String?, side: Int = 240): Bitmap? {
+        val page = pageId?.let { repo.page(it) } ?: return null
+        val mode = scanModeOf(repo.document(page.docId)?.doc?.mode ?: "")
+        return processed.load(page, page.recipeFor(mode), mode, side) ?: loader.load(page, side)
+    }
+}

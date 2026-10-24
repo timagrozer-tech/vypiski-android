@@ -13,6 +13,8 @@
     <string name="viewer_action_extract">Извлечь текст</string>
     <string name="viewer_action_share">Поделиться</string>
     <string name="viewer_action_more">Ещё</string>
+    <string name="viewer_rename_suggest">Назвать документ «%1$s»?</string>
+    <string name="viewer_rename_action">Да</string>
     <string name="viewer_more_docx">Сохранить текст в Word (DOCX)…</string>
     <string name="viewer_more_text">Весь текст документа</string>
     <string name="viewer_more_export">Экспорт PDF, JPG, PNG…</string>

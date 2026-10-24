@@ -40,11 +40,11 @@ import ru.scanner291.core.database.DocumentSummary
 import ru.scanner291.core.database.TagEntity
 import ru.scanner291.core.storage.DocCollection
 import ru.scanner291.designsystem.ButtonVariant
-import ru.scanner291.designsystem.DocumentRow
+import ru.scanner291.designsystem.BottomBarInset
+import ru.scanner291.designsystem.DocumentCard
 import ru.scanner291.designsystem.EmptyState
 import ru.scanner291.designsystem.FolderRow
 import ru.scanner291.designsystem.GlassCard
-import ru.scanner291.designsystem.RowDivider
 import ru.scanner291.designsystem.ScanButton
 import ru.scanner291.designsystem.ScanChip
 import ru.scanner291.designsystem.ScanSegmented
@@ -133,25 +133,26 @@ private fun Docs(
     }
 }
 
+/** Список документов: отдельные карточки, отступ снизу под панель навигации (без пустоты внутри карточки). */
 @Composable
 fun DocumentList(docs: List<DocumentSummary>, onOpen: (String) -> Unit, thumbnail: suspend (String?) -> ImageBitmap?, modifier: Modifier = Modifier, onLong: (DocumentSummary) -> Unit = {}) {
-    GlassCard(modifier.padding(horizontal = Space.s4), padding = Space.s1) {
-        LazyColumn(contentPadding = PaddingValues(bottom = Space.s10 * 2)) {
-            items(docs, key = { it.doc.id }) { d ->
-                DocumentSummaryRow(d, onOpen, thumbnail, onLong)
-                if (d != docs.last()) RowDivider()
-            }
-        }
+    LazyColumn(
+        modifier,
+        contentPadding = PaddingValues(start = Space.s4, end = Space.s4, bottom = BottomBarInset),
+        verticalArrangement = Arrangement.spacedBy(Space.s2),
+    ) {
+        items(docs, key = { it.doc.id }) { d -> DocumentSummaryRow(d, onOpen, thumbnail, onLong) }
     }
 }
 
 @Composable
 fun DocumentSummaryRow(d: DocumentSummary, onOpen: (String) -> Unit, thumbnail: suspend (String?) -> ImageBitmap?, onLong: (DocumentSummary) -> Unit = {}) {
-    val bmp by produceState<ImageBitmap?>(null, d.firstPageId) { value = thumbnail(d.firstPageId) }
-    DocumentRow(
-        title = (if (d.doc.favorite) "★ " else "") + d.doc.title,
+    val bmp by produceState<ImageBitmap?>(null, d.firstPageId, d.doc.updatedAt) { value = thumbnail(d.firstPageId) }
+    DocumentCard(
+        title = d.doc.title,
         subtitle = documentSubtitle(d.doc.updatedAt, d.pageCount),
         thumbnail = bmp,
+        favorite = d.doc.favorite,
         onClick = { onOpen(d.doc.id) },
         onLongClick = { onLong(d) },
     )

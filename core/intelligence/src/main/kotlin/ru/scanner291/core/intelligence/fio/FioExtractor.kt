@@ -390,6 +390,15 @@ class FioExtractor {
             if (before.contains(cue)) { off += w; reasons += "«$cue» перед ФИО (−$w)" }
             else if (prevLine.contains(cue) && !prevLine.trimStart().startsWith("от ")) { off += w * 0.6; reasons += "«$cue» в строке выше (−${w * 0.6})" }
         }
+        // Звание прямо перед полным ФИО в тексте приказа («1. Майора Арефьева Павла Валерьевича») — о нём документ
+        val prevWord = before.trimEnd().split(Regex("\\s+")).lastOrNull()?.replace('ё', 'е')?.trim('.', ',') ?: ""
+        if (m.form.completeness >= 5 && Lexicon.isRankWord(prevWord)) { subj += 1.5; reasons += "звание «$prevWord» перед ФИО (+1.5)" }
+        // Блок подписей: «гвардии подполковник» строкой выше, затем «С.Цахилов» — подписант, а не субъект
+        val prevWords = prevLine.replace('ё', 'е').split(Regex("[\\s,.]+")).filter { it.isNotBlank() }
+        if (m.form.completeness <= 3 && prevWords.isNotEmpty() && prevWords.size <= 4 &&
+            prevWords.any { Lexicon.isRankWord(it) } && prevWords.all { Lexicon.isRankWord(it) || it in Lexicon.RANK_PREFIXES }) {
+            off += 2.0; reasons += "звание подписанта в строке выше (−2.0)"
+        }
         if (Regex("^\\s*[,–-]\\s*(" + Lexicon.OFFICIAL_AFTER.joinToString("|") + ")").containsMatchIn(after)) {
             off += 2.0; reasons += "должность руководителя после ФИО (−2.0)"
         }

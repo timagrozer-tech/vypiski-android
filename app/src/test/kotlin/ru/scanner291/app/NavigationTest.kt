@@ -85,10 +85,10 @@ class NavigationTest {
         rule.onNodeWithText("PDF-инструменты").performClick()
         assertTrue(title("Объединить"))
         rule.onNodeWithContentDescription("Назад").performClick()
-        rule.onNodeWithText("Пакетное сохранение").performClick()
+        rule.onNodeWithText("Пакет").performClick()
         assertTrue(title("Нет документов для пакета"))
         rule.onNodeWithContentDescription("Назад").performClick()
-        rule.onNodeWithText("Мои документы").performClick()
+        rule.onNodeWithText("Документы").performClick()
         assertEquals(Destination.Documents, current())
         rule.onNodeWithText("Главная").performClick()
         assertTrue(title("Импорт"))                                   // плитка импорта — системный выбор файлов
@@ -133,7 +133,7 @@ class NavigationTest {
         assertTrue(nav.currentBackStackEntry?.destination?.route?.contains("ViewerRoute") == true)
         // Просмотр → обработка (правка углов)
         rule.onNodeWithText("Редактировать").performClick()
-        rule.waitUntil(5_000) { title("Найти автоматически") }
+        rule.waitUntil(5_000) { title("Найти углы") }
         assertTrue(title("Весь лист"))
         assertTrue(id.isNotEmpty())
     }

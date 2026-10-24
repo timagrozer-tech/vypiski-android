@@ -67,6 +67,18 @@ class PdfEngineTest {
         assertTrue("исходный файл не изменён", aBytes.contentEquals(a.readBytes()))
     }
 
+    /** «Защитить» (2026-10-24): AES-256, без пароля не открывается, с паролем — те же страницы; исходник не меняется. */
+    @Test fun protectWithPassword() {
+        val a = make("a.pdf", listOf("первая"), listOf("вторая"))
+        val before = a.readBytes()
+        val p = File(tmp.root, "p.pdf"); engine.protect(a, "1234", p)
+        assertTrue("без пароля не открывается", runCatching { engine.pageCount(p) }.isFailure)
+        assertTrue("неверный пароль", runCatching { engine.pageCount(p, "0000") }.isFailure)
+        assertEquals(2, engine.pageCount(p, "1234"))
+        assertTrue(before.contentEquals(a.readBytes()))
+        assertTrue("короткий пароль", runCatching { engine.protect(a, "12", File(tmp.root, "q.pdf")) }.isFailure)
+    }
+
     @Test fun neverOverwritesOrReplacesInput() {
         val a = make("a.pdf", listOf("x"))
         val existing = File(tmp.root, "exists.pdf").apply { writeText("не трогать") }

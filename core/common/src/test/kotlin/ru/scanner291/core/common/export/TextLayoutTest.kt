@@ -32,6 +32,23 @@ class TextLayoutTest {
         assertEquals("А.Петров", ps[2].text)
     }
 
+    /** Скриншот пользователя 2026-10-24: «Полагать убывшими: П. В командировку: 2. …» склеивались в один абзац. */
+    @Test fun shortLinesEndParagraphsAndOcrFixes() {
+        val ws = line(0.05f, 0.45f, 0.55f, "$7") +
+            line(0.08f, 0.15f, 0.40f, "Полагать", "убывшими:") +
+            line(0.10f, 0.15f, 0.40f, "П.", "В", "командировку:") +
+            line(0.12f, 0.15f, 0.90f, "2.", "Нижепоименованных", "военнослужащих", "в", "г.", "Токмак") +
+            line(0.14f, 0.10f, 0.90f, "области", "для", "выполнения", "специальных", "задач") +
+            line(0.16f, 0.10f, 0.50f, "до", "особого", "распоряжения:")
+        val ps = TextLayout.paragraphs(ws)
+        assertEquals(listOf("§ 7", "Полагать убывшими:", "II. В командировку:",
+            "2. Нижепоименованных военнослужащих в г. Токмак области для выполнения специальных задач до особого распоряжения:"), ps.map { it.text })
+        assertEquals(Align.LEFT, ps[1].align)
+        assertTrue("исправленное слово подсвечивается", ps[0].lines[0].words[0].confidence < TextLayout.LOW_CONFIDENCE)
+        // «S7» и обычное «П.» в середине строки не трогаются
+        assertEquals(listOf("S7", "и", "П."), OcrFixes.fixLine(line(0.3f, 0.1f, 0.5f, "S7", "и", "П.")).map { it.text })
+    }
+
     @Test fun docxIsValidZipWithWellFormedXml() {
         val pages = listOf(TextLayout.paragraphs(page), DocxWriter.plainParagraphs("Вторая <страница> & \"кавычки\"\n\nНовый абзац"))
         val bytes = ByteArrayOutputStream().also { DocxWriter.write(pages, it, highlightDoubtful = true) }.toByteArray()

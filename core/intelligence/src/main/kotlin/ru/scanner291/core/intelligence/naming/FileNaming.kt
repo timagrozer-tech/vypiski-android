@@ -85,4 +85,9 @@ object UniqueNameResolver {
 object DefaultNames {
     private val FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm")
     fun byDate(now: LocalDateTime, prefix: String = "Скан"): String = "$prefix ${FMT.format(now)}"
+
+    private val AUTO = Regex("^(Скан|Импорт) \\d{4}-\\d{2}-\\d{2} \\d{2}-\\d{2}( \\(\\d+\\))?$")
+
+    /** Название дано автоматически («Импорт 2026-10-24 08-52») — его можно предложить заменить на осмысленное. */
+    fun isAutomatic(title: String): Boolean = AUTO.matches(title.trim())
 }

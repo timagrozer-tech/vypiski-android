@@ -16,6 +16,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import ru.scanner291.designsystem.GlassCard
+import ru.scanner291.designsystem.OptionCard
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
@@ -129,11 +137,20 @@ class ExportViewModel @Inject constructor(
         val text = d.orderedPages.mapNotNull { repo.text(it.id)?.text }.joinToString("\n")
         val fio = if (text.isBlank()) null else withContext(Dispatchers.Default) { FioExtractor().extract(text) }
         val prop = SmartNaming.propose(_ui.value.nameByFio, fio, null, LocalDateTime.now())
-        val name = if (prop.source == ru.scanner291.core.intelligence.naming.NameSource.FIO) prop.baseName else FileNameSanitizer.sanitizeBase(d.doc.title)
+        val byFio = prop.source == ru.scanner291.core.intelligence.naming.NameSource.FIO
+        // Умное имя (как Smart Names в Scanner Pro): автоматическое «Импорт …» заменяется на тип, номер и дату документа
+        val smart = if (!byFio && text.isNotBlank() && ru.scanner291.core.intelligence.naming.DefaultNames.isAutomatic(d.doc.title))
+            withContext(Dispatchers.Default) { ru.scanner291.core.intelligence.doc.DocumentAnalyzer().analyze(text).suggestedName() } else null
+        val name = when {
+            byFio -> prop.baseName
+            smart != null -> FileNameSanitizer.sanitizeBase(smart)
+            else -> FileNameSanitizer.sanitizeBase(d.doc.title)
+        }
         val hint = when {
-            !_ui.value.nameByFio -> null
+            !_ui.value.nameByFio -> if (smart != null) "Имя по типу документа — проверьте перед сохранением" else null
             text.isBlank() -> "ФИО не определено: текст не распознан. Имя — по названию документа"
-            prop.source != ru.scanner291.core.intelligence.naming.NameSource.FIO -> "ФИО не найдено уверенно — проверьте имя"
+            !byFio && smart != null -> "ФИО не найдено уверенно — имя по типу документа, проверьте"
+            !byFio -> "ФИО не найдено уверенно — проверьте имя"
             else -> "Имя по ФИО — проверьте перед сохранением"
         }
         _ui.value = _ui.value.copy(name = name, nameHint = hint)
@@ -208,7 +225,19 @@ class ExportViewModel @Inject constructor(
 }
 
 fun mimeOf(name: String) = when (name.substringAfterLast('.').lowercase()) {
-    "pdf" -> "application/pdf"; "jpg" -> "image/jpeg"; "png" -> "image/png"; "txt" -> "text/plain"; else -> "application/octet-stream"
+    "pdf" -> "application/pdf"; "jpg" -> "image/jpeg"; "png" -> "image/png"; "txt" -> "text/plain"
+    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; else -> "application/octet-stream"
+}
+
+/** Иконка, название и пояснение карточки формата. */
+private fun modeCard(m: ExportMode): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String> = when (m) {
+    ExportMode.PDF -> Triple(Icons.Rounded.PictureAsPdf, "PDF", "Один файл, только изображения")
+    ExportMode.PDF_OCR -> Triple(Icons.Rounded.PictureAsPdf, "PDF с текстом", "Можно искать и копировать текст")
+    ExportMode.PDF_PER_PAGE -> Triple(Icons.Rounded.PictureAsPdf, "PDF по страницам", "Отдельный файл на страницу")
+    ExportMode.JPG -> Triple(Icons.Rounded.Image, "JPG", "Изображение каждой страницы")
+    ExportMode.PNG -> Triple(Icons.Rounded.Image, "PNG", "Без потерь качества")
+    ExportMode.TXT -> Triple(Icons.Rounded.TextFields, "Текст", "TXT, только распознанный текст")
+    ExportMode.DOCX -> Triple(Icons.Rounded.Description, "Word", "DOCX с абзацами и выравниванием")
 }
 
 @Composable
@@ -224,21 +253,30 @@ internal fun ExportRouteScreen(onBack: () -> Unit, vm: ExportViewModel = hiltVie
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
             Text(ui.title, style = Type.body, color = ScannerTheme.colors.textSecondary)
             SectionTitle("Формат")
-            ExportMode.entries.forEach { m ->
-                Row(Modifier.fillMaxWidth().clickable { vm.setMode(m) }, verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(ui.mode == m, { vm.setMode(m) }, colors = RadioButtonDefaults.colors(selectedColor = ScannerTheme.colors.accent))
-                    Text(m.title, style = Type.bodyLg, color = ScannerTheme.colors.text)
+            // Сетка карточек 2 в ряд: формат виден сразу, без длинного списка переключателей
+            ExportMode.entries.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+                    row.forEach { m ->
+                        val (icon, title, sub) = modeCard(m)
+                        OptionCard(icon, title, sub, ui.mode == m, { vm.setMode(m) }, Modifier.weight(1f))
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            Text("DOCX и XLSX появятся, когда их качество будет измерено.", style = Type.caption, color = ScannerTheme.colors.textSecondary)
             SectionTitle("Качество")
-            ScanSegmented(QualityProfile.entries, ui.profile, ::profileShort, vm::setProfile)
-            Text(if (ui.estimating) "Оценка размера…" else sizeText(ui.estimate), style = Type.caption, color = ScannerTheme.colors.textSecondary)
-            ToggleRow("Водяной знак «В/ч 65384»", ui.watermark.enabled, vm::setWatermark, description = "Слева внизу, 20 %. Оригиналы не меняются")
+            GlassCard {
+                ScanSegmented(QualityProfile.entries, ui.profile, ::profileShort, vm::setProfile)
+                Spacer(Modifier.height(Space.s2))
+                Text(if (ui.estimating) "Оценка размера…" else sizeText(ui.estimate), style = Type.caption, color = ScannerTheme.colors.textSecondary)
+                ToggleRow("Водяной знак «В/ч 65384»", ui.watermark.enabled, vm::setWatermark, description = "Слева внизу, 20 %. Оригиналы не меняются")
+            }
             SectionTitle("Имя файла")
-            FioToggle(ui.nameByFio, vm::setNameByFio)
-            ScanTextField(ui.name, vm::setName, "Имя файла")
-            ui.nameHint?.let { Text(it, style = Type.caption, color = ScannerTheme.colors.textSecondary) }
+            GlassCard {
+                FioToggle(ui.nameByFio, vm::setNameByFio)
+                ScanTextField(ui.name, vm::setName, "Имя файла", suffix = "." + ui.mode.ext)
+                ui.nameHint?.let { Text(it, style = Type.caption, color = ScannerTheme.colors.textSecondary, modifier = Modifier.padding(top = Space.s1)) }
+            }
+            Spacer(Modifier.height(Space.s2))
         }
         Column(Modifier.navigationBarsPadding().padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
             if (ui.running) {

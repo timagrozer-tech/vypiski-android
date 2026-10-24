@@ -121,6 +121,7 @@ data class ProcessingActions(
     val onAdjust: (String, Float) -> Unit = { _, _ -> },
     val onSavePreset: (String) -> Unit = {},
     val onDeletePreset: (String) -> Unit = {},
+    val onAutoFilter: () -> Unit = {},
 )
 
 @Composable
@@ -131,7 +132,7 @@ internal fun ProcessingRouteScreen(onBack: () -> Unit, vm: ProcessingViewModel =
         ProcessingActions(
             vm::move, vm::autoDetect, vm::fullPage, vm::save, vm::open, vm::selectStep, vm::setFilter, vm::rotate,
             vm::setShadows, vm::setDenoise, vm::setBrightness, vm::setContrast, vm::reset, vm::undo, vm::redo, onBack, vm::setHybrid,
-            vm::applyPreset, vm::setAdjust, vm::saveAsPreset, vm::deleteUserPreset,
+            vm::applyPreset, vm::setAdjust, vm::saveAsPreset, vm::deleteUserPreset, onAutoFilter = vm::autoFilter,
         ),
     )
 }
@@ -256,6 +257,8 @@ private fun ColumnScope.EnhanceStep(state: ProcessingState.Ready, a: ProcessingA
         when (tab) {
             EnhanceTab.Presets -> PresetStrip(state, a)
             EnhanceTab.Filter -> {
+                ScanButton(stringResource(R.string.proc_auto_filter), a.onAutoFilter, Modifier.fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s1),
+                    variant = ButtonVariant.Secondary, icon = Icons.Rounded.AutoFixHigh)
                 FilterStrip(ru.scanner291.core.common.model.FILTER_ORDER, r.filter, { it.title }, state.previews, a.onFilter, Modifier.padding(vertical = Space.s1))
                 if (r.filter == FilterType.HYBRID) {
                     ScanSegmented(ru.scanner291.core.common.model.HybridProfile.entries, r.hybrid, { it.title }, a.onHybrid,
