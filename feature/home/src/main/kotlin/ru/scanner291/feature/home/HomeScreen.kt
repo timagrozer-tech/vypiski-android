@@ -104,7 +104,7 @@ fun HomeScreen(
             // Три действия в ряд; «Документы» и «Поиск» — в нижней панели, здесь не повторяются
             Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
                 CompactAction(Icons.Rounded.FileOpen, "Импорт", onImport, Modifier.weight(1f))
-                CompactAction(Icons.Rounded.PictureAsPdf, "PDF-инструменты", onOpenPdfTools, Modifier.weight(1f))
+                CompactAction(Icons.Rounded.PictureAsPdf, "Работа с PDF", onOpenPdfTools, Modifier.weight(1f))
                 CompactAction(Icons.Rounded.LibraryAddCheck, "Пакет", onOpenBatch, Modifier.weight(1f))
             }
             if (importing) {

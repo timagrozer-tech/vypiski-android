@@ -9,7 +9,8 @@
     <string name="viewer_back">Назад</string>
     <string name="viewer_page_image">Страница %1$d. Сведите или разведите пальцы, чтобы изменить масштаб</string>
     <string name="viewer_action_rotate">Поворот</string>
-    <string name="viewer_action_edit">Редактировать</string>
+    <string name="viewer_action_edit">Правка</string>
+    <string name="viewer_action_edit_desc">Редактировать</string>
     <string name="viewer_action_extract">Извлечь текст</string>
     <string name="viewer_action_share">Поделиться</string>
     <string name="viewer_action_more">Ещё</string>

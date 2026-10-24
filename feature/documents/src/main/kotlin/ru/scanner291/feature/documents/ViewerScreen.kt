@@ -245,7 +245,8 @@ private fun BottomBar(onRotate: () -> Unit, onEdit: () -> Unit, onExtract: () ->
     var more by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().background(c.surface).navigationBarsPadding().padding(vertical = Space.s1)) {
         BarButton(Icons.Rounded.RotateRight, stringResource(R.string.viewer_action_rotate), onRotate, Modifier.weight(1f))
-        BarButton(Icons.Rounded.Edit, stringResource(R.string.viewer_action_edit), onEdit, Modifier.weight(1f))
+        val editDesc = stringResource(R.string.viewer_action_edit_desc)
+        BarButton(Icons.Rounded.Edit, stringResource(R.string.viewer_action_edit), onEdit, Modifier.weight(1f).semantics { contentDescription = editDesc })
         BarButton(Icons.Rounded.TextFields, stringResource(R.string.viewer_action_extract), onExtract, Modifier.weight(1f))
         BarButton(Icons.Rounded.Share, stringResource(R.string.viewer_action_share), onShare, Modifier.weight(1f))
         Box(Modifier.weight(1f)) {

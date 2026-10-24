@@ -82,7 +82,7 @@ class NavigationTest {
         rule.onNodeWithContentDescription("Назад").assertExists()            // камера
         assertTrue(title("Назвать файл по ФИО"))                              // галочка на экране сканирования
         rule.onNodeWithContentDescription("Назад").performClick()
-        rule.onNodeWithText("PDF-инструменты").performClick()
+        rule.onNodeWithText("Работа с PDF").performClick()
         assertTrue(title("Объединить"))
         rule.onNodeWithContentDescription("Назад").performClick()
         rule.onNodeWithText("Пакет").performClick()
@@ -132,7 +132,7 @@ class NavigationTest {
         rule.waitUntil(5_000) { title("1/1") }          // просмотр «Образ / Word», счётчик страниц
         assertTrue(nav.currentBackStackEntry?.destination?.route?.contains("ViewerRoute") == true)
         // Просмотр → обработка (правка углов)
-        rule.onNodeWithText("Редактировать").performClick()
+        rule.onNodeWithText("Правка").performClick()
         rule.waitUntil(5_000) { title("Найти углы") }
         assertTrue(title("Весь лист"))
         assertTrue(id.isNotEmpty())
