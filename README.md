@@ -25,14 +25,14 @@
 
 ## Первая настоящая сборка (03.11.2026)
 
-Debug APK собран в GitHub Actions (ветка  репозитория , по явному запросу владельца):
+Debug APK собран в GitHub Actions (ветка `revvl-camera-lab` репозитория `timagrozer-tech/vypiski-android`, по явному запросу владельца):
 
-- **Kotlin скомпилирован с Android SDK 36 и CameraX 1.6.2 с первой попытки**; предупреждений компилятора два — безобидные  для  (их же предсказала офлайн-проверка на заглушках). Unit-тесты прошли.
-- Исправлено в CI:  по умолчанию ставит пакет , которого нет в cmdline-tools 16 — во всех workflow указано .
-- Исправлено в манифесте:  (транзитивно через camera-video) добавлял ; удалено через . Итоговые разрешения APK: только  и  (+ внутреннее signature-разрешение AndroidX для неэкспортируемых ресиверов). **INTERNET нет.**
-- APK: , 17,3 МБ, minSdk 29 / targetSdk 35 / compileSdk 36, debug-подпись v2/v3, ориентация portrait.
+- **Kotlin скомпилирован с Android SDK 36 и CameraX 1.6.2 с первой попытки**; предупреждений компилятора два — безобидные `@OptIn` для `ExperimentalCamera2Interop` (их же предсказала офлайн-проверка на заглушках). Unit-тесты прошли.
+- Исправлено в CI: `android-actions/setup-android@v3` по умолчанию ставит пакет `tools`, которого нет в cmdline-tools 16 — во всех workflow указано `packages: 'platform-tools'`.
+- Исправлено в манифесте: `androidx.media3:media3-common` (транзитивно через camera-video) добавлял `ACCESS_NETWORK_STATE`; удалено через `tools:node="remove"`. Итоговые разрешения APK: только `CAMERA` и `RECORD_AUDIO` (+ внутреннее signature-разрешение AndroidX для неэкспортируемых ресиверов). **INTERNET нет.**
+- APK: `REVVL-Camera-Lab-0.3.9-debug.apk`, 17,3 МБ, minSdk 29 / targetSdk 35 / compileSdk 36, debug-подпись v2/v3, ориентация portrait. Опубликован в ветке `revvl-camera-lab-apk` того же репозитория.
 
-**На REVVL 7 Pro не проверено** — дальше .
+**На REVVL 7 Pro не проверено** — дальше `DEVICE_TEST_PROTOCOL.md`.
 
 ## Подготовлено: переход на CameraX 1.7 (не применён)
 
