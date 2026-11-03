@@ -1,0 +1,313 @@
+diff --git a/.github/workflows/verify-sources.yml b/.github/workflows/verify-sources.yml
+index c1589bf..69c4580 100644
+--- a/.github/workflows/verify-sources.yml
++++ b/.github/workflows/verify-sources.yml
+@@ -27,7 +27,7 @@ jobs:
+         run: |
+           git clone -q --depth 1 --filter=blob:none --sparse https://github.com/androidx/androidx /tmp/ax
+           git -C /tmp/ax sparse-checkout set --no-cone '/camera/*/api/*'
+-          tools/api-check/check-apis.sh /tmp/ax 1.6.0-rc01
++          tools/api-check/check-apis.sh /tmp/ax 1.7.0-rc01
+       - name: Check Android framework calls against AOSP API 36 signature files
+         run: |
+           git clone -q --depth 1 --branch android16-release --filter=blob:none --sparse https://github.com/aosp-mirror/platform_frameworks_base /tmp/fwb
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 3739cf7..fc305bb 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -15,7 +15,7 @@
+ - Проверка без APK: workflow `verify-sources.yml` (только вручную); офлайн — `tools/offline-check/check.sh` (новые API добавлять в его заглушки).
+ - Изменения `BurstDenoiser` сравнивать `tools/offline-check/bench.sh` (передай путь к старой версии как аргумент) и заносить результаты в README.
+ - UI: вёрстка — только `CameraScreen`/`CameraWidgets`; решения UI — чистые функции в `UiModel`. Activity — портретная, ориентация снимков из `OrientationEventListener`.
+-- Параметры Camera2 (Camera2CameraControl) — только через `ProControls.plan` → `applyRequestOptions()`, одним набором; не вызывать `setCaptureRequestOptions` из других мест.
++- Параметры Camera2 — только через `ProControls.plan` → `applyRequestOptions()` (`applyCamera2InteropAsync` с `clearAllCaptureRequestOptions()` в начале блока); не вызывать interop из других мест.
+ - Значимые события и ошибки писать в `AppLog.log` (без личных данных); задержки — `log.latency(kind, ms)`.
+ - После теста на телефоне: начинать с файла диагностики (раздел «Проверка сочетаний») и `DEVICE_TEST_PROTOCOL.md`, а не с предположений о чипсете.
+ - Новую логику решений писать чистыми функциями (как `SessionPlanner`, `CameraPolicy`) с unit-тестами; `MainActivity` — только UI и оркестрация.
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 4a6a70f..cbe000f 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -40,8 +40,10 @@ dependencies {
+     androidTestImplementation("androidx.test:runner:1.6.2")
+     androidTestImplementation("androidx.test:rules:1.6.1")
+     androidTestImplementation("androidx.test:core-ktx:1.6.1")
+-    // Every CameraX call is checked against camera/*/api/1.6.0-rc01.txt: tools/api-check/check-apis.sh
+-    val cameraX = "1.6.2"
++    // Every CameraX call is checked against camera/*/api/1.7.0-rc01.txt: tools/api-check/check-apis.sh
++    // CameraX 1.7 migration (prepared against 1.7.0-rc01 API signatures; switch to the stable
++    // 1.7.0 once released). Core modules no longer require compileSdk 37 (1.7.0-alpha02 notes).
++    val cameraX = "1.7.0"
+     implementation("androidx.activity:activity-ktx:1.10.1")
+     implementation("androidx.core:core-ktx:1.16.0")
+     implementation("androidx.camera:camera-core:$cameraX")
+diff --git a/app/src/main/java/ru/revvl/cameralab/CameraCapabilities.kt b/app/src/main/java/ru/revvl/cameralab/CameraCapabilities.kt
+index 413d375..e3af362 100644
+--- a/app/src/main/java/ru/revvl/cameralab/CameraCapabilities.kt
++++ b/app/src/main/java/ru/revvl/cameralab/CameraCapabilities.kt
+@@ -3,8 +3,7 @@ package ru.revvl.cameralab
+ import android.content.Context
+ import android.hardware.camera2.CameraCharacteristics
+ import android.hardware.camera2.CameraManager
+-import androidx.camera.camera2.interop.Camera2CameraInfo
+-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
++import androidx.camera.camera2.interop.Camera2Interop
+ import androidx.camera.core.CameraSelector
+ import androidx.camera.core.DynamicRange
+ import androidx.camera.core.ImageCapture
+@@ -26,7 +25,6 @@ data class ManualSensorInfo(val minIso: Int, val maxIso: Int, val minExposureNs:
+  * from the chipset. All queries are defensive and return "not available" on failure.
+  * Code moved from MainActivity (v0.3.1) without behavioural changes.
+  */
+-@OptIn(ExperimentalCamera2Interop::class)
+ class CameraCapabilities(context: Context) {
+     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+ 
+@@ -42,7 +40,8 @@ class CameraCapabilities(context: Context) {
+         val lenses = mutableListOf<Lens>()
+         for (info in p.availableCameraInfos) {
+             try {
+-                val id = Camera2CameraInfo.from(info).cameraId
++                // CameraX 1.7: Camera2CameraInfo is deprecated; Camera2Interop is the stable entry point.
++                val id = Camera2Interop.getCameraId(info)
+                 val c = manager.getCameraCharacteristics(id)
+                 val front = c.get(CameraCharacteristics.LENS_FACING) ==
+                     CameraCharacteristics.LENS_FACING_FRONT
+@@ -60,12 +59,7 @@ class CameraCapabilities(context: Context) {
+ 
+     fun selectorFor(id: String?): CameraSelector {
+         if (id == null) return CameraSelector.DEFAULT_BACK_CAMERA
+-        return CameraSelector.Builder().addCameraFilter { infos ->
+-            infos.filter { info ->
+-                try { Camera2CameraInfo.from(info).cameraId == id }
+-                catch (_: Exception) { false }
+-            }
+-        }.build()
++        return Camera2Interop.getCameraSelectorFromCameraId(id)
+     }
+ 
+     fun isExtensionAvailable(selector: CameraSelector, mode: Int): Boolean =
+diff --git a/app/src/main/java/ru/revvl/cameralab/CameraSessionBinder.kt b/app/src/main/java/ru/revvl/cameralab/CameraSessionBinder.kt
+index 41dc86c..1e5ca0e 100644
+--- a/app/src/main/java/ru/revvl/cameralab/CameraSessionBinder.kt
++++ b/app/src/main/java/ru/revvl/cameralab/CameraSessionBinder.kt
+@@ -10,6 +10,7 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
+ import androidx.camera.core.resolutionselector.ResolutionStrategy
+ import android.util.Size
+ import java.util.concurrent.Executor
++import androidx.camera.extensions.ExtensionSessionConfig
+ import androidx.camera.extensions.ExtensionsManager
+ import androidx.camera.lifecycle.ProcessCameraProvider
+ import androidx.camera.video.FallbackStrategy
+@@ -77,13 +78,13 @@ class CameraSessionBinder(private val owner: LifecycleOwner) {
+             .setOutputFormat(plan.outputFormat)
+         rotation?.let { builder.setTargetRotation(it) }
+         val capture = builder.build()
+-        // CameraX 1.6: the stable way to enable an OEM extension is an
+-        // extension-enabled selector: works with any use-case list (incl. ImageAnalysis) in 1.6.
+-        // ExtensionSessionConfig is also available in 1.6 and replaces this in 1.7 (deprecated there).
+-        val bindSelector = if (plan.useExtension && extensions != null) {
+-            extensions.getExtensionEnabledCameraSelector(selector, extensionMode)
+-        } else selector
+-        val analysis = if (analyzer != null && analyzerExecutor != null && !plan.useExtension) {
++        // CameraX 1.7: getExtensionEnabledCameraSelector is deprecated; an OEM extension is a
++        // SessionConfig. The live-histogram ImageAnalysis is never combined with an extension.
++        if (plan.useExtension && extensions != null) {
++            val config = ExtensionSessionConfig(extensionMode, extensions, preview, capture)
++            return Bound(provider.bindToLifecycle(owner, selector, config), imageCapture = capture)
++        }
++        val analysis = if (analyzer != null && analyzerExecutor != null) {
+             ImageAnalysis.Builder()
+                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                 .setResolutionSelector(ResolutionSelector.Builder()
+@@ -95,9 +96,9 @@ class CameraSessionBinder(private val owner: LifecycleOwner) {
+                 .also { it.setAnalyzer(analyzerExecutor, analyzer) }
+         } else null
+         val camera = if (analysis != null) {
+-            provider.bindToLifecycle(owner, bindSelector, preview, capture, analysis)
++            provider.bindToLifecycle(owner, selector, preview, capture, analysis)
+         } else {
+-            provider.bindToLifecycle(owner, bindSelector, preview, capture)
++            provider.bindToLifecycle(owner, selector, preview, capture)
+         }
+         return Bound(camera, imageCapture = capture)
+     }
+diff --git a/app/src/main/java/ru/revvl/cameralab/MainActivity.kt b/app/src/main/java/ru/revvl/cameralab/MainActivity.kt
+index e36835f..ea97024 100644
+--- a/app/src/main/java/ru/revvl/cameralab/MainActivity.kt
++++ b/app/src/main/java/ru/revvl/cameralab/MainActivity.kt
+@@ -29,9 +29,7 @@ import android.widget.Toast
+ import androidx.activity.ComponentActivity
+ import androidx.activity.enableEdgeToEdge
+ import androidx.activity.result.contract.ActivityResultContracts
+-import androidx.camera.camera2.interop.Camera2CameraControl
+-import androidx.camera.camera2.interop.CaptureRequestOptions
+-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
++import androidx.camera.camera2.interop.applyCamera2InteropAsync
+ import androidx.camera.core.Camera
+ import androidx.camera.core.CameraSelector
+ import androidx.camera.core.FocusMeteringAction
+@@ -56,7 +54,6 @@ import java.util.concurrent.TimeUnit
+  * Each feature is queried at runtime rather than assumed from the chipset.
+  * Unavailable OEM extension modes never masquerade as Google's HDR+ algorithm.
+  */
+-@OptIn(ExperimentalCamera2Interop::class)
+ class MainActivity : ComponentActivity() {
+ 
+     companion object {
+@@ -1191,36 +1188,33 @@ class MainActivity : ComponentActivity() {
+     private fun proSettings() = ProSettings(manualIso, manualExposureNs, manualFocusDiopters, awbMode, aeAwbLocked)
+ 
+     /**
+-     * Applies ALL PRO request options as one bundle: setCaptureRequestOptions replaces the
+-     * previous bundle, so ISO/shutter, WB, AE/AWB lock and manual focus are composed together
+-     * by [ProControls.plan] (v0.3.4 applied manual exposure alone).
++     * Applies ALL PRO request options as one bundle, composed by [ProControls.plan].
++     * CameraX 1.7 interop V2: applyCamera2InteropAsync updates keys INCREMENTALLY, so the block
++     * starts with clearAllCaptureRequestOptions(); everything in one block is applied atomically
++     * in a single repeating-request update (same "replace the bundle" semantics as 1.6).
+      */
+     private fun applyRequestOptions() {
+         val c = camera ?: return
+         if (extensionMode != ExtensionMode.NONE) return
+         val plan = ProControls.plan(proSettings(), proSupport, isVideoMode, false, softwareBurstEnabled)
+         try {
+-            val controller = Camera2CameraControl.from(c.cameraControl)
+-            if (plan.isEmpty) {
+-                controller.clearCaptureRequestOptions()
+-            } else {
+-                val b = CaptureRequestOptions.Builder()
+-                val iso = plan.iso
+-                val shutterNs = plan.exposureNs
++            val iso = plan.iso
++            val shutterNs = plan.exposureNs
++            val focus = plan.focusDiopters
++            c.cameraControl.applyCamera2InteropAsync {
++                clearAllCaptureRequestOptions()
+                 if (plan.aeModeOff && iso != null && shutterNs != null) {
+-                    b.setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+-                    b.setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, iso)
+-                    b.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, shutterNs)
++                    setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
++                    setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, iso)
++                    setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, shutterNs)
+                 }
+-                if (plan.aeLock) b.setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
+-                plan.awbMode?.let { b.setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, it) }
+-                if (plan.awbLock) b.setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+-                val focus = plan.focusDiopters
++                if (plan.aeLock) setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
++                plan.awbMode?.let { setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, it) }
++                if (plan.awbLock) setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+                 if (plan.afModeOff && focus != null) {
+-                    b.setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+-                    b.setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, focus)
++                    setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
++                    setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, focus)
+                 }
+-                controller.setCaptureRequestOptions(b.build())
+             }
+             imageCapture?.flashMode = if (softwareBurstEnabled || plan.aeModeOff ||
+                 effectivePhotoFormat == ImageCapture.OUTPUT_FORMAT_RAW_JPEG) ImageCapture.FLASH_MODE_OFF else flashMode
+diff --git a/app/src/main/java/ru/revvl/cameralab/ProControls.kt b/app/src/main/java/ru/revvl/cameralab/ProControls.kt
+index 8b69ff6..7243f2b 100644
+--- a/app/src/main/java/ru/revvl/cameralab/ProControls.kt
++++ b/app/src/main/java/ru/revvl/cameralab/ProControls.kt
+@@ -34,7 +34,7 @@ data class ProSupport(
+         get() = ProControls.AWB_ORDER.filter { it in awbModes && it != ProControls.AWB_AUTO }
+ }
+ 
+-/** Camera2 request options to apply as ONE bundle (setCaptureRequestOptions replaces the bundle). */
++/** Camera2 request options applied as ONE bundle (cleared and re-set atomically in one interop update). */
+ data class RequestPlan(
+     val aeModeOff: Boolean = false,
+     val iso: Int? = null,
+diff --git a/tools/api-check/required-apis.txt b/tools/api-check/required-apis.txt
+index b935c69..a6570bd 100644
+--- a/tools/api-check/required-apis.txt
++++ b/tools/api-check/required-apis.txt
+@@ -57,8 +57,9 @@ camera-core|DEFAULT_BACK_CAMERA
+ camera-core|androidx.camera.core.DynamicRange SDR
+ camera-core|androidx.camera.core.MeteringPoint createPoint(float, float)
+ camera-core|int getRotationDegrees()
+-camera-core|int getRowStride()
+-camera-core|int getPixelStride()
++camera-common|int getRowStride()
++camera-common|int getPixelStride()
++camera-core|interface ImageProxy.PlaneProxy extends androidx.camera.common.ImagePlane
+ camera-video|static androidx.camera.video.VideoCapabilities getVideoCapabilities(androidx.camera.core.CameraInfo)
+ camera-video|getSupportedQualities(androidx.camera.core.DynamicRange)
+ camera-video|static androidx.camera.video.QualitySelector fromOrderedList(java.util.List<androidx.camera.video.Quality>, androidx.camera.video.FallbackStrategy)
+@@ -75,7 +76,8 @@ camera-video|ERROR_DURATION_LIMIT_REACHED
+ camera-video|ERROR_INSUFFICIENT_STORAGE
+ camera-video|long getRecordedDurationNanos()
+ camera-video|android.net.Uri getOutputUri()
+-camera-extensions|androidx.camera.core.CameraSelector getExtensionEnabledCameraSelector(androidx.camera.core.CameraSelector, int)
++camera-extensions|ExtensionSessionConfig(int, androidx.camera.extensions.ExtensionsManager, androidx.camera.core.UseCase...)
++camera-lifecycle|androidx.camera.core.Camera bindToLifecycle(androidx.lifecycle.LifecycleOwner, androidx.camera.core.CameraSelector, androidx.camera.core.SessionConfig)
+ camera-extensions|boolean isExtensionAvailable(androidx.camera.core.CameraSelector, int)
+ camera-extensions|static com.google.common.util.concurrent.ListenableFuture<androidx.camera.extensions.ExtensionsManager> getInstanceAsync(android.content.Context, androidx.camera.core.CameraProvider)
+ camera-lifecycle|androidx.camera.core.Camera bindToLifecycle(androidx.lifecycle.LifecycleOwner, androidx.camera.core.CameraSelector, androidx.camera.core.UseCase?...)
+@@ -87,9 +89,9 @@ camera-view|androidx.camera.core.Preview.SurfaceProvider getSurfaceProvider()
+ camera-view|androidx.camera.core.MeteringPointFactory getMeteringPointFactory()
+ camera-view|ImplementationMode COMPATIBLE
+ camera-view|ScaleType FILL_CENTER
+-camera-camera2|static androidx.camera.camera2.interop.Camera2CameraInfo from(androidx.camera.core.CameraInfo)
+-camera-camera2|String getCameraId()
+-camera-camera2|static androidx.camera.camera2.interop.Camera2CameraControl from(androidx.camera.core.CameraControl)
+-camera-camera2|setCaptureRequestOptions(androidx.camera.camera2.interop.CaptureRequestOptions)
+-camera-camera2|clearCaptureRequestOptions()
+-camera-camera2|CaptureRequestOptions.Builder setCaptureRequestOption(android.hardware.camera2.CaptureRequest.Key<ValueT>, ValueT)
++camera-camera2|static String getCameraId(androidx.camera.core.CameraInfo)
++camera-camera2|static androidx.camera.core.CameraSelector getCameraSelectorFromCameraId(String)
++camera-camera2|static inline com.google.common.util.concurrent.ListenableFuture<java.lang.Void> applyCamera2InteropAsync(androidx.camera.core.CameraControl, kotlin.jvm.functions.Function1<? super androidx.camera.camera2.interop.CameraControlCamera2Interop,kotlin.Unit>)
++camera-camera2|abstract class CameraControlCamera2Interop implements androidx.camera.camera2.interop.CameraCaptureSessionInterop
++camera-camera2|void clearAllCaptureRequestOptions()
++camera-camera2|<V> void setCaptureRequestOption(android.hardware.camera2.CaptureRequest.Key<V>, V)
+diff --git a/tools/offline-check/check.sh b/tools/offline-check/check.sh
+index a147243..0bea616 100755
+--- a/tools/offline-check/check.sh
++++ b/tools/offline-check/check.sh
+@@ -25,7 +25,7 @@ java -cp "$B/t:$STD:$REFL" RunnerKt $CLASSES 2>&1 | grep -v "^Picked up" | grep
+ echo "== 2. Type-check of all app sources against API stubs"
+ python3 "$HERE/gen_android_stubs.py" "$B/jstub" >/dev/null
+ javac -nowarn -d "$B/jout" $(find "$B/jstub" -name "*.java") 2>&1 | grep -v "^Picked up"
+-OUT=$(kc -cp "$STD:$B/jout" -d "$B/k" "$HERE/kstub/EdgeToEdge.kt" $SRC/*.kt | grep -E "error|warning" | grep -v "RequiresOptIn")
++OUT=$(kc -cp "$STD:$B/jout" -d "$B/k" $HERE/kstub/*.kt $SRC/*.kt | grep -E "error|warning" | grep -v "RequiresOptIn")
+ if echo "$OUT" | grep -q "error"; then echo "$OUT"; exit 1; fi
+ [ -n "$OUT" ] && echo "$OUT"
+ echo "type-check: OK"
+diff --git a/tools/offline-check/gen_android_stubs.py b/tools/offline-check/gen_android_stubs.py
+index f7ccd9c..6e9a30f 100644
+--- a/tools/offline-check/gen_android_stubs.py
++++ b/tools/offline-check/gen_android_stubs.py
+@@ -379,6 +379,14 @@ public ActivityScenario<A> moveToState(androidx.lifecycle.Lifecycle.State s){ret
+ public ActivityScenario<A> onActivity(ActivityAction<A> a){return this;} public void close(){}
+ public interface ActivityAction<A extends android.app.Activity> { void perform(A a); }""","final class","<A extends android.app.Activity> implements AutoCloseable")
+ 
++
++# ---- CameraX 1.7 migration (interop V2, ExtensionSessionConfig)
++c("androidx.camera.core.SessionConfig","","abstract class")
++c("androidx.camera.extensions.ExtensionSessionConfig","public ExtensionSessionConfig(int mode, ExtensionsManager m, androidx.camera.core.UseCase... u){}","final class"," extends androidx.camera.core.SessionConfig")
++S["androidx.camera.lifecycle.ProcessCameraProvider"]=(S["androidx.camera.lifecycle.ProcessCameraProvider"][0], S["androidx.camera.lifecycle.ProcessCameraProvider"][1]+"\npublic androidx.camera.core.Camera bindToLifecycle(androidx.lifecycle.LifecycleOwner o, androidx.camera.core.CameraSelector s, androidx.camera.core.SessionConfig c){return null;}", S["androidx.camera.lifecycle.ProcessCameraProvider"][2])
++c("androidx.camera.camera2.interop.Camera2Interop","public static String getCameraId(androidx.camera.core.CameraInfo i){return null;} public static androidx.camera.core.CameraSelector getCameraSelectorFromCameraId(String id){return null;}","final class")
++c("androidx.camera.camera2.interop.CameraControlCamera2Interop","public abstract void clearAllCaptureRequestOptions(); public abstract <V> void setCaptureRequestOption(android.hardware.camera2.CaptureRequest.Key<V> k, V v);","abstract class")
++
+ for fq,(kind,body,ext) in S.items():
+     pkg,name=fq.rsplit('.',1)
+     d=os.path.join(OUT,*pkg.split('.')); os.makedirs(d,exist_ok=True)
+diff --git a/tools/offline-check/kstub/Camera2InteropEx.kt b/tools/offline-check/kstub/Camera2InteropEx.kt
+new file mode 100644
+index 0000000..c58e9d7
+--- /dev/null
++++ b/tools/offline-check/kstub/Camera2InteropEx.kt
+@@ -0,0 +1,9 @@
++@file:JvmName("Camera2InteropEx")
++package androidx.camera.camera2.interop
++
++import androidx.camera.core.CameraControl
++import com.google.common.util.concurrent.ListenableFuture
++
++// Mirrors CameraX 1.7: public inline fun CameraControl.applyCamera2InteropAsync(crossinline block: CameraControlCamera2Interop.() -> Unit)
++inline fun CameraControl.applyCamera2InteropAsync(crossinline block: CameraControlCamera2Interop.() -> Unit): ListenableFuture<Void> =
++    throw UnsupportedOperationException("stub")

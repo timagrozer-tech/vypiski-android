@@ -1,0 +1,95 @@
+# module|signature fragment (after normalization: no annotations, no parameter names, no "!")
+# Every AndroidX API the app calls. Run check-apis.sh after adding a new call.
+camera-core|ImageCapture.Builder setJpegQuality(int)
+camera-core|ImageCapture.Builder setCaptureMode(int)
+camera-core|ImageCapture.Builder setFlashMode(int)
+camera-core|ImageCapture.Builder setTargetRotation(int)
+camera-core|ImageCapture.Builder setOutputFormat(int)
+camera-core|static androidx.camera.core.ImageCaptureCapabilities getImageCaptureCapabilities(androidx.camera.core.CameraInfo)
+camera-core|java.util.Set<java.lang.Integer> getSupportedOutputFormats()
+camera-core|void takePicture(androidx.camera.core.ImageCapture.OutputFileOptions, androidx.camera.core.ImageCapture.OutputFileOptions, java.util.concurrent.Executor, androidx.camera.core.ImageCapture.OnImageSavedCallback)
+camera-core|void takePicture(androidx.camera.core.ImageCapture.OutputFileOptions, java.util.concurrent.Executor, androidx.camera.core.ImageCapture.OnImageSavedCallback)
+camera-core|void takePicture(java.util.concurrent.Executor, androidx.camera.core.ImageCapture.OnImageCapturedCallback)
+camera-core|OUTPUT_FORMAT_JPEG = 0
+camera-core|OUTPUT_FORMAT_JPEG_ULTRA_HDR = 1
+camera-core|OUTPUT_FORMAT_RAW_JPEG = 3
+camera-core|FLASH_MODE_AUTO = 0
+camera-core|FLASH_MODE_ON = 1
+camera-core|FLASH_MODE_OFF = 2
+camera-core|android.net.Uri? getSavedUri()
+camera-core|int getImageCaptureError()
+camera-core|ImageCapture.OutputFileOptions.Builder(android.content.ContentResolver, android.net.Uri, android.content.ContentValues)
+camera-core|void setSurfaceProvider(androidx.camera.core.Preview.SurfaceProvider?)
+camera-core|Preview.Builder setResolutionSelector(androidx.camera.core.resolutionselector.ResolutionSelector)
+camera-core|ImageAnalysis.Builder setBackpressureStrategy(int)
+camera-core|ImageAnalysis.Builder setResolutionSelector(androidx.camera.core.resolutionselector.ResolutionSelector)
+camera-core|void setAnalyzer(java.util.concurrent.Executor, androidx.camera.core.ImageAnalysis.Analyzer)
+camera-core|STRATEGY_KEEP_ONLY_LATEST
+camera-core|ResolutionStrategy(android.util.Size, int)
+camera-core|FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
+camera-core|RATIO_4_3_FALLBACK_AUTO_STRATEGY
+camera-core|RATIO_16_9_FALLBACK_AUTO_STRATEGY
+camera-core|ResolutionSelector.Builder setAspectRatioStrategy(androidx.camera.core.resolutionselector.AspectRatioStrategy)
+camera-core|ResolutionSelector.Builder setResolutionStrategy(androidx.camera.core.resolutionselector.ResolutionStrategy)
+camera-core|FocusMeteringAction.Builder(androidx.camera.core.MeteringPoint, int)
+camera-core|FocusMeteringAction.Builder disableAutoCancel()
+camera-core|FocusMeteringAction.Builder setAutoCancelDuration(long, java.util.concurrent.TimeUnit)
+camera-core|FLAG_AWB
+camera-core|cancelFocusAndMetering()
+camera-core|setZoomRatio(float)
+camera-core|setLinearZoom(float)
+camera-core|enableTorch(boolean)
+camera-core|setExposureCompensationIndex(int)
+camera-core|startFocusAndMetering(androidx.camera.core.FocusMeteringAction)
+camera-core|androidx.lifecycle.LiveData<androidx.camera.core.ZoomState> getZoomState()
+camera-core|androidx.lifecycle.LiveData<androidx.camera.core.CameraState> getCameraState()
+camera-core|CameraState.StateError? getError()
+camera-core|abstract int getCode()
+camera-core|boolean hasFlashUnit()
+camera-core|androidx.camera.core.ExposureState getExposureState()
+camera-core|int getExposureCompensationIndex()
+camera-core|android.util.Rational getExposureCompensationStep()
+camera-core|float getMinZoomRatio()
+camera-core|float getMaxZoomRatio()
+camera-core|float getZoomRatio()
+camera-core|CameraSelector.Builder addCameraFilter(androidx.camera.core.CameraFilter)
+camera-core|DEFAULT_BACK_CAMERA
+camera-core|androidx.camera.core.DynamicRange SDR
+camera-core|androidx.camera.core.MeteringPoint createPoint(float, float)
+camera-core|int getRotationDegrees()
+camera-core|int getRowStride()
+camera-core|int getPixelStride()
+camera-video|static androidx.camera.video.VideoCapabilities getVideoCapabilities(androidx.camera.core.CameraInfo)
+camera-video|getSupportedQualities(androidx.camera.core.DynamicRange)
+camera-video|static androidx.camera.video.QualitySelector fromOrderedList(java.util.List<androidx.camera.video.Quality>, androidx.camera.video.FallbackStrategy)
+camera-video|static androidx.camera.video.FallbackStrategy lowerQualityOrHigherThan(androidx.camera.video.Quality)
+camera-video|androidx.camera.video.PendingRecording prepareRecording(android.content.Context, androidx.camera.video.MediaStoreOutputOptions)
+camera-video|androidx.camera.video.PendingRecording withAudioEnabled()
+camera-video|androidx.camera.video.Recording start(java.util.concurrent.Executor, androidx.core.util.Consumer<androidx.camera.video.VideoRecordEvent>)
+camera-video|static <T extends androidx.camera.video.VideoOutput> androidx.camera.video.VideoCapture<T> withOutput(T)
+camera-video|void setTargetRotation(int)
+camera-video|MediaStoreOutputOptions.Builder setContentValues(android.content.ContentValues)
+camera-video|ERROR_SOURCE_INACTIVE
+camera-video|ERROR_FILE_SIZE_LIMIT_REACHED
+camera-video|ERROR_DURATION_LIMIT_REACHED
+camera-video|ERROR_INSUFFICIENT_STORAGE
+camera-video|long getRecordedDurationNanos()
+camera-video|android.net.Uri getOutputUri()
+camera-extensions|androidx.camera.core.CameraSelector getExtensionEnabledCameraSelector(androidx.camera.core.CameraSelector, int)
+camera-extensions|boolean isExtensionAvailable(androidx.camera.core.CameraSelector, int)
+camera-extensions|static com.google.common.util.concurrent.ListenableFuture<androidx.camera.extensions.ExtensionsManager> getInstanceAsync(android.content.Context, androidx.camera.core.CameraProvider)
+camera-lifecycle|androidx.camera.core.Camera bindToLifecycle(androidx.lifecycle.LifecycleOwner, androidx.camera.core.CameraSelector, androidx.camera.core.UseCase?...)
+camera-lifecycle|static com.google.common.util.concurrent.ListenableFuture<androidx.camera.lifecycle.ProcessCameraProvider> getInstance(android.content.Context)
+camera-lifecycle|getAvailableCameraInfos()
+camera-core|default androidx.camera.core.CameraInfo getCameraInfo(androidx.camera.core.CameraSelector)
+camera-lifecycle|void unbindAll()
+camera-view|androidx.camera.core.Preview.SurfaceProvider getSurfaceProvider()
+camera-view|androidx.camera.core.MeteringPointFactory getMeteringPointFactory()
+camera-view|ImplementationMode COMPATIBLE
+camera-view|ScaleType FILL_CENTER
+camera-camera2|static androidx.camera.camera2.interop.Camera2CameraInfo from(androidx.camera.core.CameraInfo)
+camera-camera2|String getCameraId()
+camera-camera2|static androidx.camera.camera2.interop.Camera2CameraControl from(androidx.camera.core.CameraControl)
+camera-camera2|setCaptureRequestOptions(androidx.camera.camera2.interop.CaptureRequestOptions)
+camera-camera2|clearCaptureRequestOptions()
+camera-camera2|CaptureRequestOptions.Builder setCaptureRequestOption(android.hardware.camera2.CaptureRequest.Key<ValueT>, ValueT)

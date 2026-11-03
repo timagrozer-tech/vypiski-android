@@ -1,0 +1,96 @@
+# Android framework (android.jar) APIs the app calls; checked against AOSP core/api/current.txt
+# (android16-release = API 36); lines prefixed "mediaprovider|" are checked against the MediaProvider
+# mainline module API (MediaStore lives there, not in frameworks/base). Same normalization as check-apis.sh. minSdk 29: "added in"
+# levels are not encoded in current.txt — APIs used here are all API ≤ 29 or guarded.
+# Camera2 characteristics / request keys
+CameraCharacteristics.Key<java.lang.Integer> LENS_FACING
+CameraCharacteristics.Key<float[]> LENS_INFO_AVAILABLE_FOCAL_LENGTHS
+CameraCharacteristics.Key<java.lang.Float> LENS_INFO_MINIMUM_FOCUS_DISTANCE
+CameraCharacteristics.Key<java.lang.Integer> LENS_INFO_FOCUS_DISTANCE_CALIBRATION
+CameraCharacteristics.Key<int[]> LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION
+CameraCharacteristics.Key<java.lang.Boolean> CONTROL_AE_LOCK_AVAILABLE
+CameraCharacteristics.Key<java.lang.Boolean> CONTROL_AWB_LOCK_AVAILABLE
+CameraCharacteristics.Key<int[]> CONTROL_AWB_AVAILABLE_MODES
+CameraCharacteristics.Key<int[]> REQUEST_AVAILABLE_CAPABILITIES
+CameraCharacteristics.Key<android.util.Range<java.lang.Integer>> SENSOR_INFO_SENSITIVITY_RANGE
+CameraCharacteristics.Key<android.util.Range<java.lang.Long>> SENSOR_INFO_EXPOSURE_TIME_RANGE
+CameraCharacteristics.Key<java.lang.Integer> INFO_SUPPORTED_HARDWARE_LEVEL
+CameraCharacteristics.Key<java.lang.Boolean> FLASH_INFO_AVAILABLE
+CameraCharacteristics.Key<android.hardware.camera2.params.StreamConfigurationMap> SCALER_STREAM_CONFIGURATION_MAP
+int LENS_FACING_FRONT = 0
+int LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED = 0
+int REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR = 1
+int REQUEST_AVAILABLE_CAPABILITIES_RAW = 3
+int INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED = 0
+int INFO_SUPPORTED_HARDWARE_LEVEL_FULL = 1
+int INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY = 2
+int INFO_SUPPORTED_HARDWARE_LEVEL_3 = 3
+int INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL = 4
+CaptureRequest.Key<java.lang.Integer> CONTROL_AE_MODE
+CaptureRequest.Key<java.lang.Boolean> CONTROL_AE_LOCK
+CaptureRequest.Key<java.lang.Integer> CONTROL_AWB_MODE
+CaptureRequest.Key<java.lang.Boolean> CONTROL_AWB_LOCK
+CaptureRequest.Key<java.lang.Integer> CONTROL_AF_MODE
+CaptureRequest.Key<java.lang.Float> LENS_FOCUS_DISTANCE
+CaptureRequest.Key<java.lang.Integer> SENSOR_SENSITIVITY
+CaptureRequest.Key<java.lang.Long> SENSOR_EXPOSURE_TIME
+int CONTROL_AE_MODE_OFF = 0
+int CONTROL_AF_MODE_OFF = 0
+int CONTROL_AWB_MODE_AUTO = 1
+int CONTROL_AWB_MODE_INCANDESCENT = 2
+int CONTROL_AWB_MODE_FLUORESCENT = 3
+int CONTROL_AWB_MODE_WARM_FLUORESCENT = 4
+int CONTROL_AWB_MODE_DAYLIGHT = 5
+int CONTROL_AWB_MODE_CLOUDY_DAYLIGHT = 6
+int CONTROL_AWB_MODE_TWILIGHT = 7
+int CONTROL_AWB_MODE_SHADE = 8
+android.hardware.camera2.CameraCharacteristics getCameraCharacteristics(String) throws android.hardware.camera2.CameraAccessException
+android.util.Size[] getOutputSizes(int)
+int JPEG = 256
+int RAW_SENSOR = 32
+# Media / storage
+android.graphics.Bitmap loadThumbnail(android.net.Uri, android.util.Size, android.os.CancellationSignal) throws java.io.IOException
+final java.io.InputStream openInputStream(android.net.Uri) throws java.io.FileNotFoundException
+final java.io.OutputStream openOutputStream(android.net.Uri) throws java.io.FileNotFoundException
+mediaprovider|public static final class MediaStore.Downloads
+mediaprovider|String RELATIVE_PATH = "relative_path"
+mediaprovider|String IS_PENDING = "is_pending"
+mediaprovider|String DATE_TAKEN = "datetaken"
+String DIRECTORY_DOWNLOADS
+String DIRECTORY_DCIM
+String DIRECTORY_MOVIES
+static android.content.Intent createChooser(android.content.Intent, CharSequence)
+String EXTRA_TEXT = "android.intent.extra.TEXT"
+String EXTRA_SUBJECT = "android.intent.extra.SUBJECT"
+android.graphics.Bitmap createBitmap(@NonNull android.graphics.Bitmap, int, int, int, int, @Nullable android.graphics.Matrix, boolean)
+static android.graphics.Bitmap createBitmap(@ColorInt @NonNull int[], int, int, @NonNull android.graphics.Bitmap.Config)
+boolean compress(@NonNull android.graphics.Bitmap.CompressFormat, @IntRange(from=0, to=100) int, @NonNull java.io.OutputStream)
+void getPixels(@ColorInt @NonNull int[], int, int, int, int, int, int)
+static android.graphics.Bitmap decodeByteArray(byte[], int, int, android.graphics.BitmapFactory.Options)
+# Views and drawing
+abstract class OrientationEventListener
+boolean canDetectOrientation()
+abstract void onOrientationChanged(int)
+class ScaleGestureDetector
+float getScaleFactor()
+class GestureDetector
+boolean onSingleTapUp(@NonNull android.view.MotionEvent)
+void onLongPress(@NonNull android.view.MotionEvent)
+int LONG_PRESS = 0
+int VIRTUAL_KEY = 1
+int KEYCODE_CAMERA = 27
+int KEYCODE_VOLUME_DOWN = 25
+int KEYCODE_VOLUME_UP = 24
+boolean performHapticFeedback(int)
+void setClipToOutline(boolean)
+void setContentDescription(CharSequence)
+android.view.ViewPropertyAnimator rotation(float)
+void drawArc(@NonNull android.graphics.RectF, float, float, boolean, @NonNull android.graphics.Paint)
+void drawRoundRect(@NonNull android.graphics.RectF, float, float, @NonNull android.graphics.Paint)
+void setCornerRadius(float)
+void setLetterSpacing(float)
+static android.graphics.Typeface create(String, int)
+void setImageBitmap(android.graphics.Bitmap)
+final void runOnUiThread(Runnable)
+static long elapsedRealtime()
+mediaprovider|android.net.Uri EXTERNAL_CONTENT_URI

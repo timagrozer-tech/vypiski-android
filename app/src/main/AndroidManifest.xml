@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+    <application
+        android:allowBackup="false"
+        android:label="REVVL Camera Lab"
+        android:icon="@drawable/ic_camera"
+        android:theme="@style/CameraTheme"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait">
+            <!-- UI is portrait-only (icons counter-rotate); photo/video orientation comes from
+                 OrientationEventListener → targetRotation, so rotating no longer recreates the
+                 activity and no longer interrupts a recording. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

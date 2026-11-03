@@ -1,0 +1,11 @@
+<resources>
+    <style name="CameraTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#74E4C7</item>
+        <item name="android:statusBarColor">#0B101A</item>
+        <item name="android:navigationBarColor">#0B101A</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
