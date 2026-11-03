@@ -31,6 +31,8 @@ jobs:
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Manifest merger report (where each permission comes from)
+        run: grep -n -B1 -A3 "uses-permission" app/build/outputs/logs/manifest-merger-debug-report.txt || true
       - name: Checksum
         run: sha256sum app/build/outputs/apk/debug/app-debug.apk | tee app/build/outputs/apk/debug/app-debug.apk.sha256
       - uses: actions/upload-artifact@v4
